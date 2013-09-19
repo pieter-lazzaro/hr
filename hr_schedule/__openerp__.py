@@ -37,6 +37,7 @@ Easily create, manage, and track employee schedules.
         'hr_contract_init',
         'hr_employee_state',
         'hr_holidays',
+        'hr_security',
     ],
     'init_xml': [
     ],
