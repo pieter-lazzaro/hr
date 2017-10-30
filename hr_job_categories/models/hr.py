@@ -1,4 +1,3 @@
-# -*- coding:utf-8 -*-
 ##############################################################################
 #
 #    Copyright (C) 2013 Michael Telahun Makonnen <mmakonnen@gmail.com>.
@@ -25,7 +24,6 @@ from odoo import models, fields, api
 
 _logger = logging.getLogger(__name__)
 
-
 class hr_job(models.Model):
     _inherit = 'hr.job'
 
@@ -39,7 +37,7 @@ class hr_job(models.Model):
 class hr_contract(models.Model):
     _inherit = 'hr.contract'
 
-    @api.one
+    @api.model
     def _remove_tags(self, employee_id=None, job_id=None):
         if not employee_id or not job_id:
             return
@@ -52,7 +50,7 @@ class hr_contract(models.Model):
             if tag in empl_tags:
                 employee.write({'category_ids': [(3, tag.id)]})
 
-    @api.one
+    @api.model
     def _tag_employees(self, employee_id=None, job_id=None):
         if not employee_id or not job_id:
             return
