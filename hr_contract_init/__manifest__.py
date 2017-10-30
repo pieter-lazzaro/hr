@@ -21,7 +21,7 @@
 
 {
     'name': 'Contracts - Initial Settings',
-    'version': '1.0',
+    'version': '11.0.1.0.0',
     'category': 'Generic Modules/Human Resources',
     'description': """
 Define Initial Settings on New Contracts
