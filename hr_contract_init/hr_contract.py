@@ -65,9 +65,11 @@ class contract_init(models.Model):
         readonly=True,
         states={'draft': [('readonly', False)]},
         help="Length of Trial Period, in days",
+        default=0
     )
     active = fields.Boolean(
         'Active',
+        default=True
     )
     state = fields.Selection(
         [
@@ -76,15 +78,9 @@ class contract_init(models.Model):
             ('decline', 'Declined'),
         ],
         'State',
+        default='draft',
         readonly=True,
     )
-
-
-    _defaults = {
-        'trial_period': 0,
-        'active': True,
-        'state': 'draft',
-    }
 
     # Return records with latest date first
     _order = 'date desc'
