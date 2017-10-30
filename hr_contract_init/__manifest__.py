@@ -42,7 +42,7 @@ Define Initial Settings on New Contracts
     ],
     'data': [
         'security/ir.model.access.csv',
-        'hr_contract_view.xml',
+        'views/hr_contract_view.xml',
     ],
     'test': [
     ],
