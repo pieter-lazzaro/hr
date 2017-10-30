@@ -35,6 +35,9 @@ class contract_init(models.Model):
 
     _inherit = 'ir.needaction_mixin'
 
+    # Return records with latest date first
+    _order = 'date desc'
+
     name = fields.Char(
         'Name',
         size=64,
@@ -82,8 +85,6 @@ class contract_init(models.Model):
         readonly=True,
     )
 
-    # Return records with latest date first
-    _order = 'date desc'
 
     def _needaction_domain_get(self, cr, uid, context=None):
 
