@@ -19,7 +19,7 @@
 #
 ##############################################################################
 
-from openerp.tests import common
+from odoo.tests import common
 
 
 class test_hr_job_categories(common.TransactionCase):
