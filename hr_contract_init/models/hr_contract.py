@@ -18,6 +18,7 @@
 #
 #
 
+import logging
 from datetime import datetime, timedelta
 
 from odoo.addons import decimal_precision as dp
@@ -26,31 +27,34 @@ from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
 from odoo.tools.translate import _
 from odoo.exceptions import UserError
 
+_logger = logging.getLogger(__name__)
+
 class hr_contract(models.Model):
 
     _inherit = 'hr.contract'
 
-    @api.model
     def _default_get_wage(self, job_id=None):
         ''' Returns the wage for job with id job_id. '''
+
+        _logger.info(self.read())
         res = 0
         default = 0
         init = self.get_latest_initial_values()
 
         if job_id:
-            catdata = self.env['hr.job'].read(['category_ids'])
+            job = self.env['hr.job'].browse(job_id)
         else:
-            catdata = False
+            job = False
 
         if init is not None:
             for line in init.wage_ids:
                 if job_id is not None and line.job_id.id == job_id:
                     res = line.starting_wage
-                elif catdata:
+                elif job:
                     cat_id = False
                     category_ids = [c.id for c in line.category_ids]
-                    for ci in catdata['category_ids']:
-                        if ci in category_ids:
+                    for ci in job.category_ids:
+                        if ci.id in category_ids:
                             cat_id = ci
                             break
                     if cat_id:
@@ -63,7 +67,6 @@ class hr_contract(models.Model):
             res = default
         return res
 
-    @api.model
     def _default_get_struct(self):
 
         res = False
@@ -72,9 +75,8 @@ class hr_contract(models.Model):
             res = init.struct_id.id
         return res
 
-    @api.model
     def _default_get_trial_date_end(self):
-
+        _logger.info(self.read())
         res = False
         init = self.get_latest_initial_values()
         if init is not None and init.trial_period and init.trial_period > 0:
