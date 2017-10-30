@@ -26,7 +26,7 @@ from odoo.addons import decimal_precision as dp
 from odoo import fields, models, api
 from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
 from odoo.tools.translate import _
-
+from odoo.exceptions import UserError
 
 class contract_init(models.Model):
 
@@ -96,39 +96,26 @@ class contract_init(models.Model):
 
         return False
 
-    def unlink(self, cr, uid, ids, context=None):
+    @api.multi
+    def unlink(self):
 
-        if isinstance(ids, (int, long)):
-            ids = [ids]
-        data = self.read(cr, uid, ids, ['state'], context=context)
-        for d in data:
-            if d['state'] in ['approve', 'decline']:
-                raise models.except_orm(
-                    _('Error'),
-                    _('You may not a delete a record that is not in a '
-                      '"Draft" state')
-                )
-        return super(contract_init, self).unlink(cr, uid, ids, context=context)
+        for record in self:
+            if record.state in ['approve', 'decline']:
+                raise UserError(_('You may not a delete a record that is not in a '
+                                  '"Draft" state'))
 
-    def set_to_draft(self, cr, uid, ids, context=None):
-        self.write(cr, uid, ids, {
-            'state': 'draft',
-        }, context=context)
-        wf_service = netsvc.LocalService("workflow")
-        for i in ids:
-            wf_service.trg_delete(uid, 'hr.contract.init', i, cr)
-            wf_service.trg_create(uid, 'hr.contract.init', i, cr)
-        return True
+        return super(contract_init, self).unlink()
 
-    def state_approve(self, cr, uid, ids, context=None):
+    @api.multi
+    def set_to_draft(self):
+        self.write({'state': 'draft'})
+    
+    @api.multi
+    def state_approve(self):
+        self.write({'state': 'approve'})
 
-        self.write(cr, uid, ids, {'state': 'approve'}, context=context)
-        return True
-
-    def state_decline(self, cr, uid, ids, context=None):
-
-        self.write(cr, uid, ids, {'state': 'decline'}, context=context)
-        return True
+    def state_decline(self):
+        self.write({'state': 'decline'})
 
 
 class init_wage(models.Model):
@@ -162,48 +149,45 @@ class init_wage(models.Model):
     )
 
 
-    def _rec_message(self, cr, uid, ids, context=None):
+    def _rec_message(self):
         return _('A Job Position cannot be referenced more than once in a '
                  'Contract Settings record.')
 
     _sql_constraints = [
-        ('unique_job_cinit', 'UNIQUE(job_id,contract_init_id)', _rec_message),
+        ('unique_job_cinit', 'UNIQUE(job_id,contract_init_id)', lambda self: self._rec_message()),
     ]
 
-    def unlink(self, cr, uid, ids, context=None):
-
-        if isinstance(ids, (int, long)):
-            ids = [ids]
-        data = self.read(cr, uid, ids, ['contract_init_id'], context=context)
-        for d in data:
-            if not d.get('contract_init_id', False):
+    @api.multi
+    def unlink(self):
+        for record in self:
+            if not record.contract_init_id:
                 continue
-            d2 = self.pool.get(
-                'hr.contract.init').read(cr, uid, d['contract_init_id'][0],
-                                         ['state'], context=context)
-            if d2['state'] in ['approve', 'decline']:
-                raise models.except_orm(
-                    _('Error'),
+
+            if record.contract_init_id.state in ['approve', 'decline']:
+                raise UserError(
                     _('You may not a delete a record that is not in a '
                       '"Draft" state')
                 )
-        return super(init_wage, self).unlink(cr, uid, ids, context=context)
+
+        return super(init_wage, self).unlink()
 
 
 class hr_contract(models.Model):
 
     _inherit = 'hr.contract'
 
-    def _get_wage(self, cr, uid, context=None, job_id=None):
-
+    @api.model
+    def _default_get_wage(self, job_id=None):
+        ''' Returns the wage for job with id job_id. '''
         res = 0
         default = 0
-        init = self.get_latest_initial_values(cr, uid, context=context)
+        init = self.get_latest_initial_values()
+
         if job_id:
-            catdata = self.pool.get('hr.job').read(
-                cr, uid, job_id, ['category_ids'], context=context)
+            catdata = self.env['hr.job'].read(['category_ids'])
         else:
             catdata = False
+
         if init is not None:
             for line in init.wage_ids:
                 if job_id is not None and line.job_id.id == job_id:
@@ -225,75 +209,57 @@ class hr_contract(models.Model):
             res = default
         return res
 
-    def _get_struct(self, cr, uid, context=None):
+    @api.model
+    def _default_get_struct(self):
 
         res = False
-        init = self.get_latest_initial_values(cr, uid, context=context)
+        init = self.get_latest_initial_values()
         if init is not None and init.struct_id:
             res = init.struct_id.id
         return res
 
-    def _get_trial_date_start(self, cr, uid, context=None):
+    @api.model
+    def _default_get_trial_date_end(self):
 
         res = False
-        init = self.get_latest_initial_values(cr, uid, context=context)
+        init = self.get_latest_initial_values()
         if init is not None and init.trial_period and init.trial_period > 0:
-            res = datetime.now().strftime(OE_DFORMAT)
+            date_end = datetime.now().date() + timedelta(days=init.trial_period)
+            res = date_end.strftime(OE_DFORMAT)
         return res
 
-    def _get_trial_date_end(self, cr, uid, context=None):
+    wage = fields.Monetary(default=lambda self: self._default_get_wage())
+    struct_id = fields.Many2one(default=lambda self: self._default_get_struct())
+    trial_date_end = fields.Date(default=lambda self: self._default_get_trial_date_end())
 
-        res = False
-        init = self.get_latest_initial_values(cr, uid, context=context)
-        if init is not None and init.trial_period and init.trial_period > 0:
-            dEnd = datetime.now().date() + timedelta(days=init.trial_period)
-            res = dEnd.strftime(OE_DFORMAT)
-        return res
+    @api.onchange('job_id')
+    def _onchange_job_id(self):
 
-    _defaults = {
-        'wage': _get_wage,
-        'struct_id': _get_struct,
-        'trial_date_start': _get_trial_date_start,
-        'trial_date_end': _get_trial_date_end,
-    }
+        if self.job_id.id:
+            wage = self._default_get_wage(job_id=self.job_id.id)
+            return {'value': {'wage': wage}}
+        return False
 
-    def onchange_job(self, cr, uid, ids, job_id, context=None):
 
-        res = False
-        if job_id:
-            wage = self._get_wage(cr, uid, context=context, job_id=job_id)
-            res = {'value': {'wage': wage}}
-        return res
-
-    def onchange_trial(self, cr, uid, ids, trial_date_start, context=None):
-
-        res = {'value': {'trial_date_end': False}}
-
-        init = self.get_latest_initial_values(cr, uid, context=context)
-        if init is not None and init.trial_period and init.trial_period > 0:
-            dStart = datetime.strptime(trial_date_start, OE_DFORMAT)
-            dEnd = dStart + timedelta(days=init.trial_period)
-            res['value']['trial_date_end'] = dEnd.strftime(OE_DFORMAT)
-
-        return res
-
-    def get_latest_initial_values(self, cr, uid, today_str=None, context=None):
+    @api.model
+    def get_latest_initial_values(self, today_str=None):
         """Return a record with an effective date before today_str
         but greater than all others
         """
 
-        init_obj = self.pool.get('hr.contract.init')
+        init_obj = self.env['hr.contract.init']
+
         if today_str is None:
             today_str = datetime.now().strftime(OE_DFORMAT)
-        dToday = datetime.strptime(today_str, OE_DFORMAT).date()
+
+        date_today = datetime.strptime(today_str, OE_DFORMAT).date()
 
         res = None
-        ids = init_obj.search(
-            cr, uid, [('date', '<=', today_str), ('state', '=', 'approve')],
-            context=context)
-        for init in init_obj.browse(cr, uid, ids, context=context):
+        initial_settings = init_obj.search([('date', '<=', today_str), ('state', '=', 'approve')])
+
+        for init in initial_settings:
             d = datetime.strptime(init.date, OE_DFORMAT).date()
-            if d <= dToday:
+            if d <= date_today:
                 if res is None:
                     res = init
                 elif d > datetime.strptime(res.date, OE_DFORMAT).date():
