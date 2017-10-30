@@ -21,7 +21,6 @@
 
 from datetime import datetime, timedelta
 
-from odoo import netsvc
 from odoo.addons import decimal_precision as dp
 from odoo import fields, models, api
 from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
@@ -32,8 +31,6 @@ class contract_init(models.Model):
 
     _name = 'hr.contract.init'
     _description = 'Initial Contract Settings'
-
-    _inherit = 'ir.needaction_mixin'
 
     # Return records with latest date first
     _order = 'date desc'

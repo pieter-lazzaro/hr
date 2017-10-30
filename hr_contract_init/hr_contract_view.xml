@@ -62,7 +62,7 @@
         </record>
         <menuitem action="open_contract_init"
             id="menu_hr_contract_init"
-            parent="hr_contract.next_id_56"
+            parent="hr.menu_human_resources_configuration"
             sequence="10"/>
         
         <!-- Initial Wages -->
@@ -96,30 +96,6 @@
                         </group>
                     </group>
                 </form>
-            </field>
-        </record>
-        
-        <!-- Contract -->
-        
-        <record id="hr_contract_view_form" model="ir.ui.view">
-            <field name="name">hr.contract.view.form.contract_init</field>
-            <field name="model">hr.contract</field>
-            <field name="inherit_id" ref="hr_contract.hr_contract_view_form"/>
-            <field name="arch" type="xml">
-                <xpath expr="//field[@name='trial_date_start']" position="replace">
-                    <field name="trial_date_start" class="oe_inline"/> -
-                </xpath>
-            </field>
-        </record>
-        
-        <record id="hr_contract_view_form" model="ir.ui.view">
-            <field name="name">hr.contract.view.form.contract_init</field>
-            <field name="model">hr.contract</field>
-            <field name="inherit_id" ref="hr_simplify.view_contract_form"/>
-            <field name="arch" type="xml">
-                <xpath expr="//field[@name='job_id']" position="replace">
-                    <field name="job_id" required="1" domain="[('department_id', '=', employee_dept_id)]" />
-                </xpath>
             </field>
         </record>
     
