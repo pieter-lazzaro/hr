@@ -28,52 +28,38 @@ from odoo.exceptions import UserError
 class test_hr_contract_init(common.TransactionCase):
     def setUp(self):
         super(test_hr_contract_init, self).setUp()
-        self.employee_model = self.env['hr.employee']
-        self.employee_categ_model = self.env['hr.employee.category']
-        self.user_model = self.env['res.users']
-        self.job_model = self.env['hr.job']
-        self.contract_model = self.env['hr.contract']
         self.contract_init_model = self.env['hr.contract.init']
+
+        self.init = self.contract_init_model.create({
+            'name': 'test settings',
+            'date': fields.Date.today(),
+        })
+
 
     def test_cannot_delete_approved(self):
         """
         Test that initial settings cannot be deleted if approved
         """
         
-        init = self.contract_init_model.create({
-            'name': 'test settings',
-            'date': fields.Date.today(),
-        })
-
-        init.action_approve()
+        self.init.action_approve()
 
         with self.assertRaises(UserError):
-            init.unlink()
+            self.init.unlink()
 
     def test_cannot_delete_declined(self):
         """
         Test that initial settings cannot be deleted if declined
         """
-        
-        init = self.contract_init_model.create({
-            'name': 'test settings',
-            'date': fields.Date.today(),
-        })
 
-        init.action_decline()
+        self.init.action_decline()
 
         with self.assertRaises(UserError):
-            init.unlink()
+            self.init.unlink()
     
     def test_can_delete_draft(self):
         """
         Test that initial settings can be deleted if a draft
         """
-        
-        init = self.contract_init_model.create({
-            'name': 'test settings',
-            'date': fields.Date.today(),
-        })
 
         # Try and delete, should not raise anything
-        init.unlink()
+        self.init.unlink()
