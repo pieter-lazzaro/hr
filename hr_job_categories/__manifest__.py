@@ -21,7 +21,7 @@
 
 {
     'name': 'HR Job Employee Categories',
-    'version': '8.0.1.0.0',
+    'version': '11.0.1.0.0',
     'category': 'Generic Modules/Human Resources',
     'author': "Michael Telahun Makonnen <mmakonnen@gmail.com>, "
               "Savoir-faire Linux, "
@@ -37,5 +37,5 @@
     ],
     'test': [
     ],
-    'installable': False,
+    'installable': True,
 }
