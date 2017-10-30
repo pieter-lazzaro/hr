@@ -24,7 +24,7 @@ from odoo import models, fields, api
 
 _logger = logging.getLogger(__name__)
 
-class hr_job(models.Model):
+class Job(models.Model):
     _inherit = 'hr.job'
 
     category_ids = fields.Many2many('hr.employee.category',
@@ -34,7 +34,7 @@ class hr_job(models.Model):
                                     string='Associated Tags')
 
 
-class hr_contract(models.Model):
+class Contract(models.Model):
     _inherit = 'hr.contract'
 
     @api.model
@@ -65,7 +65,7 @@ class hr_contract(models.Model):
 
     @api.model
     def create(self, vals):
-        res = super(hr_contract, self).create(vals)
+        res = super(Contract, self).create(vals)
         self._tag_employees(vals.get('employee_id', False),
                             vals.get('job_id', False))
         return res
@@ -74,7 +74,7 @@ class hr_contract(models.Model):
     def write(self, vals):
         prev_data = self.read(['job_id'])
 
-        res = super(hr_contract, self).write(vals)
+        res = super(Contract, self).write(vals)
 
         # Go through each record and delete tags associated with the previous
         # job, then add the tags of the new job.
