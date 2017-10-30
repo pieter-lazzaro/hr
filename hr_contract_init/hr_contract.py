@@ -107,14 +107,14 @@ class contract_init(models.Model):
         return super(contract_init, self).unlink()
 
     @api.multi
-    def set_to_draft(self):
+    def action_draft(self):
         self.write({'state': 'draft'})
-    
+
     @api.multi
-    def state_approve(self):
+    def action_approve(self):
         self.write({'state': 'approve'})
 
-    def state_decline(self):
+    def action_decline(self):
         self.write({'state': 'decline'})
 
 

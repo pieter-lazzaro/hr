@@ -39,14 +39,12 @@ Define Initial Settings on New Contracts
         'hr_job_categories',
         'hr_payroll',
         'hr_security',
-        'hr_simplify',
     ],
     'data': [
         'security/ir.model.access.csv',
-        'hr_contract_init_workflow.xml',
         'hr_contract_view.xml',
     ],
     'test': [
     ],
-    'installable': False,
+    'installable': True,
 }

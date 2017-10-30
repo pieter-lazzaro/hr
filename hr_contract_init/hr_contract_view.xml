@@ -22,9 +22,9 @@
             <field name="arch" type="xml">
                 <form string="Contract Initial Values" version="7.0">
                     <header>
-                        <button name="signal_approve" type="workflow" states="draft" string="Approve" class="oe_highlight" />
-                        <button name="signal_decline" type="workflow" states="draft,approve" string="Decline" class="oe_highlight" />
-                        <button string="Reset to New" name="set_to_draft" states="decline" type="object" groups="hr_security.group_hr_director"/>
+                        <button name="action_approve" type="object" states="draft" string="Approve" class="oe_highlight" />
+                        <button name="action_decline" type="object" states="draft,approve" string="Decline" class="oe_highlight" />
+                        <button string="Reset to New" name="action_draft" states="decline" type="object" groups="hr_security.group_hr_director"/>
                         <field name="state" widget="statusbar" statusbar_visible="draft,approve" />
                     </header>
                     <label for="name" class="oe_edit_only"/>
@@ -107,7 +107,7 @@
             <field name="inherit_id" ref="hr_contract.hr_contract_view_form"/>
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='trial_date_start']" position="replace">
-                    <field name="trial_date_start" class="oe_inline" on_change="onchange_trial(trial_date_start)"/> -
+                    <field name="trial_date_start" class="oe_inline"/> -
                 </xpath>
             </field>
         </record>
@@ -118,7 +118,7 @@
             <field name="inherit_id" ref="hr_simplify.view_contract_form"/>
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='job_id']" position="replace">
-                    <field name="job_id" required="1" domain="[('department_id', '=', employee_dept_id)]" on_change="onchange_job(job_id)"/>
+                    <field name="job_id" required="1" domain="[('department_id', '=', employee_dept_id)]" />
                 </xpath>
             </field>
         </record>
