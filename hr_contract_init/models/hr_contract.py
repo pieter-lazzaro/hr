@@ -100,13 +100,13 @@ class hr_contract(models.Model):
         """Return a record with an effective date before today_str
         but greater than all others
         """
-
+        
         init_obj = self.env['hr.contract.init']
 
         if today_str is None:
-            today_str = datetime.now().strftime(OE_DFORMAT)
+            today_str = fields.Date.today()
 
-        date_today = datetime.strptime(today_str, OE_DFORMAT).date()
+        date_today = fields.Date.from_string(today_str)
 
         res = None
         initial_settings = init_obj.search([('date', '<=', today_str), ('state', '=', 'approve')])
