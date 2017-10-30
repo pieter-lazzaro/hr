@@ -25,9 +25,9 @@ from odoo import fields
 from odoo.exceptions import UserError
 
 
-class test_hr_contract_init(common.TransactionCase):
+class test_hr_init_wage(common.TransactionCase):
     def setUp(self):
-        super(test_hr_contract_init, self).setUp()
+        super(test_hr_init_wage, self).setUp()
         self.contract_init_model = self.env['hr.contract.init']
         self.wage_init_model = self.env['hr.contract.init.wage']
 
