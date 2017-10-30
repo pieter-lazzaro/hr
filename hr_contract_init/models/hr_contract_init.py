@@ -26,7 +26,7 @@ from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
 from odoo.tools.translate import _
 from odoo.exceptions import UserError
 
-class contract_init(models.Model):
+class ContractInit(models.Model):
 
     _name = 'hr.contract.init'
     _description = 'Initial Contract Settings'
@@ -100,7 +100,7 @@ class contract_init(models.Model):
                 raise UserError(_('You may not a delete a record that is not in a '
                                   '"Draft" state'))
 
-        return super(contract_init, self).unlink()
+        return super(ContractInit, self).unlink()
 
     @api.multi
     def action_draft(self):

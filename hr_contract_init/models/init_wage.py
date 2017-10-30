@@ -26,7 +26,7 @@ from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
 from odoo.tools.translate import _
 from odoo.exceptions import UserError
 
-class init_wage(models.Model):
+class InitWage(models.Model):
 
     _name = 'hr.contract.init.wage'
     _description = 'Starting Wages'
@@ -77,5 +77,5 @@ class init_wage(models.Model):
                       '"Draft" state')
                 )
 
-        return super(init_wage, self).unlink()
+        return super(InitWage, self).unlink()
 
