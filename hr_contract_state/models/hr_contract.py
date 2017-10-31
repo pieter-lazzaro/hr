@@ -111,28 +111,18 @@ class hr_contract(models.Model):
         help="Basic Salary of the employee",
     )
 
-    _track = {
-        'state': {
-            'hr_contract_state.mt_alert_trial_ending': (
-                lambda self: self.state == 'trial_ending'),
-            'hr_contract_state.mt_alert_open': (
-                lambda self: self.state == 'open'),
-            'hr_contract_state.mt_alert_contract_ending': (
-                lambda self: self.state == 'contract_ending'),
-        },
-    }
 
-    def _needaction_domain_get(self, cr, uid, context=None):
-
-        users_obj = self.pool.get('res.users')
-        domain = []
-
-        if users_obj.has_group(cr, uid, 'base.group_hr_manager'):
-            domain = [
-                ('state', 'in', ['draft', 'contract_ending', 'trial_ending'])]
-            return domain
-
-        return False
+    def _track_subtype(self, init_values):
+        self.ensure_one()
+        if 'state' in init_values:
+            if self.state == 'trial_ending':
+                return 'hr_contract_state.mt_alert_trial_ending'
+            elif self.state == 'open':
+                return 'hr_contract_state.mt_alert_open'
+            elif self.state == 'contract_ending':
+                return 'hr_contract_state.mt_alert_contract_ending'
+        return super(hr_contract, self)._track_subtype(init_values)
+            
 
     @api.onchange('job_id')
     def _onchange_job_id(self):
