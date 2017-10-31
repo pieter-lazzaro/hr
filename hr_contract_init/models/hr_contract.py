@@ -27,7 +27,6 @@ from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
 from odoo.tools.translate import _
 from odoo.exceptions import UserError
 
-_logger = logging.getLogger(__name__)
 
 class HrContract(models.Model):
     
@@ -35,8 +34,6 @@ class HrContract(models.Model):
 
     def _default_get_wage(self, job_id=None):
         ''' Returns the wage for job with id job_id. '''
-
-        _logger.info(self.read())
         res = 0
         default = 0
         init = self.get_latest_initial_values()
