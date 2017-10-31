@@ -24,120 +24,101 @@ import time
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-from openerp import netsvc
-from openerp.tools import DEFAULT_SERVER_DATE_FORMAT
-from openerp.osv import fields, orm
+from odoo import netsvc
+from odoo.tools import DEFAULT_SERVER_DATE_FORMAT
+from odoo import fields, models, api
 
 
-class hr_contract(orm.Model):
+class hr_contract(models.Model):
 
     _name = 'hr.contract'
-    _inherit = ['hr.contract', 'mail.thread', 'ir.needaction_mixin']
+    _inherit = ['hr.contract', 'mail.thread']
 
-    def _get_ids_from_employee(self, cr, uid, ids, context=None):
+    @api.depends('employee_id.department_id')
+    def _get_department(self):
 
-        res = []
-        employee_pool = self.pool['hr.employee']
-        for ee in employee_pool.browse(cr, uid, ids, context=context):
-            for contract in ee.contract_ids:
-                if contract.state not in ['pending_done', 'done']:
-                    res.append(contract.id)
-        return res
-
-    def _get_department(self, cr, uid, ids, field_name, arg, context=None):
-
-        res = dict.fromkeys(ids, False)
-        states = ['pending_done', 'done']
-        for contract in self.browse(cr, uid, ids, context=context):
-            if contract.department_id and contract.state in states:
-                res[contract.id] = contract.department_id.id
+        for contract in self:
+            if contract.department_id and contract.state in [
+                    'pending_done', 'done'
+            ]:
+                contract.department_id = contract.department_id.id
             elif contract.employee_id.department_id:
-                res[contract.id] = contract.employee_id.department_id.id
-        return res
+                contract.department_id = contract.employee_id.department_id.id
 
-    _columns = {
-        'state': fields.selection(
-            [
-                ('draft', 'Draft'),
-                ('trial', 'Trial'),
-                ('trial_ending', 'Trial Period Ending'),
-                ('open', 'Open'),
-                ('contract_ending', 'Ending'),
-                ('pending_done', 'Pending Termination'),
-                ('done', 'Completed')
-            ],
-            'State',
-            readonly=True,
-        ),
-        # store this field in the database and trigger a change only if the
-        # contract is in the right state: we don't want future changes to an
-        # employee's department to impact past contracts that have now ended.
-        # Increased priority to override hr_simplify.
-        'department_id': fields.function(
-            _get_department,
-            type='many2one',
-            method=True,
-            obj='hr.department',
-            string="Department",
-            readonly=True,
-            store={
-                'hr.employee': (_get_ids_from_employee, ['department_id'], 10)
-            },
-        ),
-        # At contract end this field will hold the job_id, and the
-        # job_id field will be set to null so that modules that
-        # reference job_id don't include deactivated employees.
-        'end_job_id': fields.many2one(
-            'hr.job',
-            'Job Title',
-            readonly=True,
-        ),
-        # The following are redefined again to make them editable only in
-        # certain states
-        'employee_id': fields.many2one(
-            'hr.employee',
-            "Employee",
-            required=True,
-            readonly=True,
-            states={
-                'draft': [('readonly', False)]
-            },
-        ),
-        'type_id': fields.many2one(
-            'hr.contract.type',
-            "Contract Type",
-            required=True,
-            readonly=True,
-            states={'draft': [('readonly', False)]},
-        ),
-        'date_start': fields.date(
-            'Start Date',
-            required=True,
-            readonly=True,
-            states={'draft': [('readonly', False)]},
-        ),
-        'wage': fields.float(
-            'Wage',
-            digits=(16, 2),
-            required=True,
-            readonly=True,
-            states={'draft': [('readonly', False)]},
-            help="Basic Salary of the employee",
-        ),
-    }
-
-    _defaults = {
-        'state': 'draft',
-    }
+    state = fields.Selection(
+        [
+            ('draft', 'Draft'),
+            ('trial', 'Trial'),
+            ('trial_ending', 'Trial Period Ending'),
+            ('open', 'Open'),
+            ('contract_ending', 'Ending'),
+            ('pending_done', 'Pending Termination'),
+            ('done', 'Completed')
+        ],
+        'State',
+        readonly=True,
+        default='draft'
+    )
+    # store this field in the database and trigger a change only if the
+    # contract is in the right state: we don't want future changes to an
+    # employee's department to impact past contracts that have now ended.
+    # Increased priority to override hr_simplify.
+    department_id = fields.Many2one(
+        compute='_get_department',
+        obj='hr.department',
+        string="Department",
+        readonly=True,
+        store=True,
+    )
+    # At contract end this field will hold the job_id, and the
+    # job_id field will be set to null so that modules that
+    # reference job_id don't include deactivated employees.
+    end_job_id = fields.Many2one(
+        'hr.job',
+        'Job Title',
+        readonly=True,
+    )
+    # The following are redefined again to make them editable only in
+    # certain states
+    employee_id = fields.Many2one(
+        'hr.employee',
+        "Employee",
+        required=True,
+        readonly=True,
+        states={
+            'draft': [('readonly', False)]
+        },
+    )
+    type_id = fields.Many2one(
+        'hr.contract.type',
+        "Contract Type",
+        required=True,
+        readonly=True,
+        states={'draft': [('readonly', False)]},
+    )
+    date_start = fields.Date(
+        'Start Date',
+        required=True,
+        readonly=True,
+        states={'draft': [('readonly', False)]},
+    )
+    wage = fields.Float(
+        'Wage',
+        digits=(16, 2),
+        required=True,
+        readonly=True,
+        states={'draft': [('readonly', False)]},
+        help="Basic Salary of the employee",
+    )
 
     _track = {
         'state': {
             'hr_contract_state.mt_alert_trial_ending': (
-                lambda s, cr, u, o, c=None: o['state'] == 'trial_ending'),
+                lambda self: self.state == 'trial_ending'),
             'hr_contract_state.mt_alert_open': (
-                lambda s, cr, u, o, c=None: o['state'] == 'open'),
+                lambda self: self.state == 'open'),
             'hr_contract_state.mt_alert_contract_ending': (
-                lambda s, cr, u, o, c=None: o['state'] == 'contract_ending'),
+                lambda self: self.state == 'contract_ending'),
         },
     }
 
@@ -153,128 +134,105 @@ class hr_contract(orm.Model):
 
         return False
 
-    def onchange_job(self, cr, uid, ids, job_id, context=None):
+    @api.onchange('job_id')
+    def _onchange_job_id(self):
 
-        import logging
-        _l = logging.getLogger(__name__)
-        _l.warning('hr_contract_state: onchange_job()')
-        res = False
-        if isinstance(ids, (int, long)):
-            ids = [ids]
-        if ids:
-            contract = self.browse(cr, uid, ids[0], context=None)
-            if contract.state != 'draft':
-                return res
-        return super(hr_contract, self).onchange_job(
-            cr, uid, ids, job_id, context=context
-        )
+        if self.state != 'draft':
+            return False
+        return super(hr_contract, self)._onchange_job_id()
 
-    def condition_trial_period(self, cr, uid, ids, context=None):
+    @api.multi
+    def condition_trial_period(self):
+        self.ensure_one()
 
-        for contract in self.browse(cr, uid, ids, context=context):
-            if not contract.trial_date_start:
-                return False
-        return True
+        if self.trial_date_end and self.trial_date_end > fields.Date.today():
+            return True
+        return False
 
-    def try_signal_ending_contract(self, cr, uid, context=None):
+    @api.model
+    def try_ending_contracts(self):
 
         d = datetime.now().date() + relativedelta(days=+30)
-        ids = self.search(cr, uid, [
+        ending_contracts = self.search([
             ('state', '=', 'open'),
-            ('date_end', '<=', d.strftime(
-                DEFAULT_SERVER_DATE_FORMAT))
-        ], context=context)
-        if len(ids) == 0:
-            return
+            ('date_end', '<=', fields.Date.to_string(d))
+        ])
 
-        wkf = netsvc.LocalService('workflow')
-        for contract in self.browse(cr, uid, ids, context=context):
-            wkf.trg_validate(
-                uid, 'hr.contract', contract.id, 'signal_ending_contract', cr
-            )
+        ending_contracts.action_ending_contract()
 
-    def try_signal_contract_completed(self, cr, uid, context=None):
+    @api.model
+    def try_contract_completed(self):
         d = datetime.now().date()
-        ids = self.search(cr, uid, [
+        completed_contracts = self.search([
             ('state', '=', 'open'),
-            ('date_end', '<', d.strftime(
-                DEFAULT_SERVER_DATE_FORMAT))
-        ], context=context)
-        if len(ids) == 0:
-            return
+            ('date_end', '<', fields.Date.to_string(d))
+        ])
 
-        wkf = netsvc.LocalService('workflow')
-        for contract in self.browse(cr, uid, ids, context=context):
-            wkf.trg_validate(
-                uid, 'hr.contract', contract.id, 'signal_pending_done', cr
-            )
+        completed_contracts.action_pending_done()
 
-    def try_signal_ending_trial(self, cr, uid, context=None):
+    @api.model
+    def try_ending_trial(self):
 
         d = datetime.now().date() + relativedelta(days=+10)
-        ids = self.search(cr, uid, [
+        ending_trials = self.search([
             ('state', '=', 'trial'),
-            ('trial_date_end', '<=', d.strftime(
-                DEFAULT_SERVER_DATE_FORMAT))
-        ], context=context)
-        if len(ids) == 0:
-            return
+            ('trial_date_end', '<=', fields.Date.to_string(d))
+        ])
 
-        wkf = netsvc.LocalService('workflow')
-        for contract in self.browse(cr, uid, ids, context=context):
-            wkf.trg_validate(
-                uid, 'hr.contract', contract.id, 'signal_ending_trial', cr
-            )
+        ending_trials.action_trial_ending()
 
-    def try_signal_open(self, cr, uid, context=None):
+    @api.model
+    def try_open(self):
 
         d = datetime.now().date() + relativedelta(days=-5)
-        ids = self.search(cr, uid, [
+        trials_ended = self.search([
             ('state', '=', 'trial_ending'),
-            ('trial_date_end', '<=', d.strftime(
-                DEFAULT_SERVER_DATE_FORMAT))
-        ], context=context)
-        if len(ids) == 0:
-            return
+            ('trial_date_end', '<=', fields.Date.to_string(d))
+        ])
 
-        wkf = netsvc.LocalService('workflow')
-        for contract in self.browse(cr, uid, ids, context=context):
-            wkf.trg_validate(
-                uid, 'hr.contract', contract.id, 'signal_open', cr
-            )
+        trials_ended.action_open()
 
-    def onchange_start(self, cr, uid, ids, date_start, context=None):
-        return {
-            'value': {
-                'trial_date_start': date_start,
-            },
-        }
+    @api.multi
+    def action_confirm(self):
 
-    def state_trial(self, cr, uid, ids, context=None):
-        self.write(cr, uid, ids, {'state': 'trial'}, context=context)
+        for contract in self:
+            if contract.condition_trial_period():
+                contract.state = 'trial'
+            else:
+                contract.state_open()
+
+
+    @api.multi
+    def action_ending_contract(self):
+        self.write({'state': 'contract_ending'})
+
+    @api.multi
+    def action_trial(self):
+        self.write({'state': 'trial'})
         return True
 
-    def state_open(self, cr, uid, ids, context=None):
-        self.write(cr, uid, ids, {'state': 'open'}, context=context)
+    @api.multi
+    def action_open(self):
+        self.write({'state': 'open'})
         return True
 
-    def state_pending_done(self, cr, uid, ids, context=None):
-        self.write(cr, uid, ids, {'state': 'pending_done'}, context=context)
+    @api.multi
+    def action_pending_done(self):
+        self.write({'state': 'pending_done'})
         return True
 
-    def state_done(self, cr, uid, ids, context=None):
-        for i in ids:
-            data = self.read(
-                cr, uid, i, ['date_end', 'job_id'], context=context)
+    @api.multi
+    def action_done(self):
+        for contract in self:
             vals = {'state': 'done',
                     'date_end': False,
                     'job_id': False,
-                    'end_job_id': data['job_id'][0]}
+                    'end_job_id': contract.job_id}
 
-            if data.get('date_end', False):
-                vals['date_end'] = data['date_end']
+            if contract.date_end:
+                vals['date_end'] = contract.date_end
             else:
-                vals['date_end'] = time.strftime(DEFAULT_SERVER_DATE_FORMAT)
+                vals['date_end'] = fields.Datetime.now()
 
-            self.write(cr, uid, ids, vals, context=context)
+            self.write(vals)
         return True

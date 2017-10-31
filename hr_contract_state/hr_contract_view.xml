@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<openerp>
+<odoo>
     <data>
         
         <!-- Menus -->
@@ -7,10 +7,10 @@
         <menuitem name="Contracts"
             id="submenu_hr_contracts"
             parent="hr.menu_hr_main"
-            sequence="100" groups="base.group_hr_user"/>
+            sequence="100" groups="hr.group_hr_user"/>
         
         <!-- Remove stock Contracts menuitem and put it in the submenu -->
-        <menuitem action="hr_contract.action_hr_contract" id="hr_contract.hr_menu_contract" parent="submenu_hr_contracts" name="Contracts" sequence="10" groups="base.group_hr_user"/>
+        <menuitem action="hr_contract.action_hr_contract" id="hr_contract.hr_menu_contract" parent="submenu_hr_contracts" name="Contracts" sequence="10" groups="hr.group_hr_user"/>
         
         <record id="hr_contract_view_tree" model="ir.ui.view">
             <field name="name">hr.contract.tree.state</field>
@@ -58,7 +58,7 @@
         <menuitem action="open_expiring_contracts"
                   id="menu_expiring_contracts"
                   parent="submenu_hr_contracts"
-                  groups="base.group_hr_user"
+                  groups="hr.group_hr_user"
                   sequence="20"/>
         
         <record id="view_draft_contracts_tree" model="ir.ui.view">
@@ -92,7 +92,7 @@
         <menuitem action="open_draft_contracts"
                   id="menu_draft_contracts"
                   parent="submenu_hr_contracts"
-                  groups="base.group_hr_user"
+                  groups="hr.group_hr_user"
                   sequence="30"/>
        
        <!-- HR Contract: Form View -->
@@ -102,23 +102,20 @@
            <field name="inherit_id" ref="hr_contract.hr_contract_view_form"/>
            <field name="arch" type="xml">
                <data>
-                   <xpath expr="//div[@class='oe_title']" position="before">
+                   <xpath expr="//header" position="replace">
                        <header>
-                           <button name="signal_confirm" type="workflow" string="Confirm" 
-                                   groups="base.group_hr_manager" states="draft" class="oe_highlight"/>
-                           <button name="signal_open" type="workflow" string="Trial Successful"
-                                   groups="base.group_hr_manager" states="trial_ending" class="oe_highlight"/>
-                           <button name="signal_done" type="workflow" string="End Contract"
-                                   groups="base.group_hr_manager" states="trial,trial_ending,open,contract_ending,pending_done" class="oe_highlight"/>
+                           <button name="action_confirm" type="object" string="Confirm" 
+                                   groups="hr.group_hr_manager" states="draft" class="oe_highlight"/>
+                           <button name="action_open" type="object" string="Trial Successful"
+                                   groups="hr.group_hr_manager" states="trial_ending" class="oe_highlight"/>
+                           <button name="action_done" type="object" string="End Contract"
+                                   groups="hr.group_hr_manager" states="trial,trial_ending,open,contract_ending,pending_done" class="oe_highlight"/>
                            <field name="state" widget="statusbar"/>
                        </header>
                    </xpath>
                    <xpath expr="//field[@name='date_start']" position="replace">
-                       <field name="date_start" class="oe_inline" on_change="onchange_start(date_start)"/> -
-                   </xpath>
-                   <xpath expr="//field[@name='trial_date_end']" position="replace">
-                       <field name="trial_date_end" class="oe_inline" attrs="{'required':[('trial_date_start','!=',False)]}"/>
-                   </xpath>
+                       <field name="date_start" class="oe_inline" />
+                   </xpath>                   
                    <xpath expr="//sheet" position="after">
                         <div class="oe_chatter">
                             <field name="message_follower_ids" widget="mail_followers"/>
@@ -132,14 +129,11 @@
        <record id="contract_view_init_form" model="ir.ui.view">
             <field name="name">hr.contract.view.form.contract_init</field>
             <field name="model">hr.contract</field>
-            <field name="inherit_id" ref="hr_contract_init.hr_contract_view_form"/>
+            <field name="inherit_id" ref="hr_contract.hr_contract_view_form"/>
             <field name="arch" type="xml">
                 <xpath expr="//field[@name='job_id']" position="replace">
-                    <field name="job_id" required="1" domain="[('department_id', '=', employee_dept_id)]" on_change="onchange_job(job_id)" attrs="{'invisible': [('state','=','done')]}"/>
+                    <field name="job_id" required="1" domain="[('department_id', '=', employee_id.department_id)]" on_change="onchange_job(job_id)" attrs="{'invisible': [('state','=','done')]}"/>
                     <field name="end_job_id" attrs="{'invisible': [('state','!=','done')]}"/>
-                </xpath>
-                <xpath expr="//field[@name='trial_date_start']" position="replace">
-                    <field name="trial_date_start" class="oe_inline" on_change="onchange_trial(trial_date_start)" attrs="{'required':[('trial_date_end','!=',False)]}"/> -
                 </xpath>
             </field>
         </record>
@@ -150,12 +144,17 @@
             <field name="inherit_id" ref="hr_contract.hr_hr_employee_view_form2"/>
             <field name="arch" type="xml">
                 <data>
-                    <xpath expr="//button[@string='Contracts']" position="replace">
-                        <button name="%(hr_contract.act_hr_employee_2_hr_contract)d" string="Contracts" type="action" groups="base.group_hr_user"/>
+                    <xpath expr="//button[@name='%(hr_contract.act_hr_employee_2_hr_contract)d']" position="replace">
+                        <button name="%(hr_contract.act_hr_employee_2_hr_contract)d"
+                            class="oe_stat_button"
+                            icon="fa-book"
+                            type="action"
+                            groups="hr.group_hr_manager">
+                            <field name="contracts_count" widget="statinfo" string="Contracts"/>
+                        </button>
                     </xpath>
                 </data>
             </field>
         </record>
-        
     </data>
-</openerp>
+</odoo>

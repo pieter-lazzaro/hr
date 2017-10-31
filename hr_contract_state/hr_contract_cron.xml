@@ -9,9 +9,9 @@
             <field name="numbercall">-1</field>
             <field eval="(DateTime.now() + timedelta(days= +1)).strftime('%Y-%m-%d 2:30:00')" name="nextcall"/>
             <field eval="True" name="doall"/>
-            <field eval="'hr.contract'" name="model"/>
-            <field eval="'try_signal_ending_contract'" name="function"/>
-            <field eval="'()'" name="args"/>
+            <field ref="model_hr_contract" name="model_id"/>
+            <field name="state">code</field>
+            <field name="code">model.try_ending_contract()</field>
         </record>
         
         <record model="ir.cron" id="hr_contract_completed_cron">
@@ -21,9 +21,9 @@
             <field name="numbercall">-1</field>
             <field eval="(DateTime.now() + timedelta(days= +1)).strftime('%Y-%m-%d 2:45:00')" name="nextcall"/>
             <field eval="True" name="doall"/>
-            <field eval="'hr.contract'" name="model"/>
-            <field eval="'try_signal_contract_completed'" name="function"/>
-            <field eval="'()'" name="args"/>
+            <field ref="model_hr_contract" name="model_id"/>
+            <field name="state">code</field>
+            <field name="code">model.try_contract_completed()</field>
         </record>
         
         <record model="ir.cron" id="hr_trial_period_ending_cron">
@@ -33,9 +33,9 @@
             <field name="numbercall">-1</field>
             <field eval="(DateTime.now() + timedelta(days= +1)).strftime('%Y-%m-%d 3:00:00')" name="nextcall"/>
             <field eval="True" name="doall"/>
-            <field eval="'hr.contract'" name="model"/>
-            <field eval="'try_signal_ending_trial'" name="function"/>
-            <field eval="'()'" name="args"/>
+            <field ref="model_hr_contract" name="model_id"/>
+            <field name="state">code</field>
+            <field name="code">model.try_ending_trial()</field>
         </record>
         
         <record model="ir.cron" id="hr_trial_period_ended_cron">
@@ -45,9 +45,9 @@
             <field name="numbercall">-1</field>
             <field eval="(DateTime.now() + timedelta(days= +1)).strftime('%Y-%m-%d 3:30:00')" name="nextcall"/>
             <field eval="True" name="doall"/>
-            <field eval="'hr.contract'" name="model"/>
-            <field eval="'try_signal_open'" name="function"/>
-            <field eval="'()'" name="args"/>
+            <field ref="model_hr_contract" name="model_id"/>
+            <field name="state">code</field>
+            <field name="code">model.try_open()</field>
         </record>
         
     </data>

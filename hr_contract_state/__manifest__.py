@@ -44,10 +44,9 @@ contracts and trial periods.
         'security/ir.model.access.csv',
         'hr_contract_cron.xml',
         'hr_contract_data.xml',
-        'hr_contract_workflow.xml',
         'hr_contract_view.xml',
     ],
     'test': [
     ],
-    'installable': False,
+    'installable': True,
 }
