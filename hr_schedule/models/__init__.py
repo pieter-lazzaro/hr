@@ -1,4 +1,3 @@
-from . import batch_schedule_ot
 from . import contract_init
 from . import hr_attendance
 from . import hr_contract
