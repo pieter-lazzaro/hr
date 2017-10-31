@@ -42,9 +42,9 @@ contracts and trial periods.
     },
     'data': [
         'security/ir.model.access.csv',
-        'hr_contract_cron.xml',
-        'hr_contract_data.xml',
-        'hr_contract_view.xml',
+        'data/hr_contract_cron.xml',
+        'data/hr_contract_data.xml',
+        'views/hr_contract_view.xml',
     ],
     'test': [
     ],
