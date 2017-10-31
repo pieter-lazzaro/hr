@@ -73,7 +73,6 @@ class HrContract(models.Model):
         return res
 
     def _default_get_trial_date_end(self):
-        _logger.info(self.read())
         res = False
         init = self.get_latest_initial_values()
         if init is not None and init.trial_period and init.trial_period > 0:
