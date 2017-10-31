@@ -11,9 +11,9 @@
             <field name="numbercall">-1</field>
             <field eval="(DateTime.now() + timedelta(days= +(7-DateTime.now().weekday()))).strftime('%Y-%m-%d 0:25:00')" name="nextcall"/>
             <field eval="True" name="doall"/>
-            <field eval="'hr.schedule'" name="model"/>
-            <field eval="'create_mass_schedule'" name="function"/>
-            <field eval="'()'" name="args"/>
+            <field name="state">code</field>
+            <field ref="model_hr_schedule" name="model_id"/>
+            <field name="code">model.create_mass_schedule()</field>
         </record>
         
         <!-- Check yesterday's schedule/attendance records against the alert rules -->
@@ -25,9 +25,9 @@
             <field name="numbercall">-1</field>
             <field eval="(DateTime.now() + timedelta(hours= +(29-DateTime.now().hour))).strftime('%Y-%m-%d 0:15:00')" name="nextcall"/>
             <field eval="True" name="doall"/>
-            <field eval="'hr.schedule.alert'" name="model"/>
-            <field eval="'check_for_alerts'" name="function"/>
-            <field eval="'()'" name="args"/>
+            <field name="state">code</field>
+            <field ref="model_hr_schedule_alert" name="model_id"/>
+            <field name="code">model.check_for_alerts()</field>
         </record>
         
     </data>

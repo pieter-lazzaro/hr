@@ -66,32 +66,20 @@ class hr_schedule_alert(models.Model):
         'Schedule Detail',
         readonly=True,
     )
-    employee_id = fields.Function(
-        _get_employee_id,
-        type='many2one',
-        obj='hr.employee',
+    employee_id = fields.Many2one(
+        'hr.employee',
+        compute="_get_employee_id",
         method=True,
         store=True,
         string='Employee',
-        readonly=True,
-    )
-    department_id = fields.Related(
-        'employee_id',
-        'department_id',
-        type='many2one',
-        store=True,
-        relation='hr.department',
-        string='Department',
-        readonly=True,
-    )
-    severity = fields.Related(
-        'rule_id',
-        'severity',
-        type='char',
+        readonly=True)
+    department_id = fields.Many2one(
+        'hr.department', string='Department', readonly=True)
+    severity = fields.Selection(
+        related='rule_id.severity',
         string='Severity',
         store=True,
-        readonly=True,
-    )
+        readonly=True)
     state = fields.Selection(
         [
             ('unresolved', 'Unresolved'),

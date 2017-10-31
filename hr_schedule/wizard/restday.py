@@ -23,7 +23,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from pytz import timezone, utc
 
-from odoo import fields
+from odoo import fields, models
 from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as OE_DTFORMAT
 from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
 from odoo.tools.translate import _
@@ -43,14 +43,7 @@ class restday(models.TransientModel):
         'Employee',
         required=True,
     )
-    contract_id = fields.Related(
-        'employee_id',
-        'contract_id',
-        type='many2one',
-        relation='hr.contract',
-        string='Contract',
-        readonly=True,
-    )
+    contract_id = fields.Many2one('hr.contract', related='employee_id.contract_id', string='Contract', readonly=True)
     st_current_id = fields.Many2one(
         'hr.schedule.template',
         'Current Template',

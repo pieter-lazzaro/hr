@@ -26,8 +26,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from pytz import timezone, utc
 
-from odoo import netsvc
-from odoo import models, fields
+from odoo import models, fields, api
 from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as OE_DTFORMAT
 from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
 from odoo.tools.translate import _
@@ -41,14 +40,13 @@ class hr_schedule(models.Model):
     _inherit = ['mail.thread']
     _description = 'Employee Schedule'
 
-    def _compute_alerts(self, cr, uid, ids, field_name, args, context=None):
-        res = dict.fromkeys(ids, '')
-        for obj in self.browse(cr, uid, ids, context=context):
+    @api.depends('detail_ids')
+    def _compute_alerts(self):
+        for obj in self:
             alert_ids = []
             for detail in obj.detail_ids:
                 [alert_ids.append(a.id) for a in detail.alert_ids]
-            res[obj.id] = alert_ids
-        return res
+            obj.alert_ids = alert_ids
 
     name = fields.Char(
         "Description",
@@ -94,29 +92,16 @@ class hr_schedule(models.Model):
         readonly=True,
         states={'draft': [('readonly', False)]}
     )
-    department_id = fields.Related(
-        'employee_id',
-        'department_id',
-        type='many2one',
-        relation='hr.department',
-        string='Department',
-        readonly=True,
-        store={
-            'hr.schedule': (
-                lambda s, cr, u, ids, ctx: ids,
-                ['employee_id'],
-                10,
-            )
-        },
-    )
-    alert_ids = fields.Function(
-        _compute_alerts,
-        type='one2many',
-        relation='hr.schedule.alert',
+    department_id = fields.Many2one(
+        'hr.department', string='Department', readonly=True, store=True)
+    
+    alert_ids = fields.One2many(
+        'hr.schedule.alert',
+        compute="_compute_alerts",
         string='Alerts',
         method=True,
-        readonly=True,
-    )
+        readonly=True)
+    
     restday_ids1 = fields.Many2many(
         'hr.schedule.weekday',
         'schedule_restdays_rel1',

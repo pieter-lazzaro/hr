@@ -19,5 +19,5 @@
 #
 #
 
-from . import hr_schedule
+from . import models
 from . import wizard

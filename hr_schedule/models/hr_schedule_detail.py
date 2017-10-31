@@ -75,22 +75,8 @@ class schedule_detail(models.Model):
         'Schedule',
         required=True,
     )
-    department_id = fields.Related(
-        'schedule_id',
-        'department_id',
-        type='many2one',
-        relation='hr.department',
-        string='Department',
-        store=True,
-    )
-    employee_id = fields.Related(
-        'schedule_id',
-        'employee_id',
-        type='many2one',
-        relation='hr.employee',
-        string='Employee',
-        store=True,
-    )
+    department_id = fields.Many2one('hr.department', string='Department', store=True)
+    employee_id = fields.Many2one('hr.employee', string='Employee', store=True)
     alert_ids = fields.One2many(
         'hr.schedule.alert',
         'sched_detail_id',
