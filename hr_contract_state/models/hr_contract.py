@@ -19,14 +19,11 @@
 #
 #
 
-import time
-
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-from odoo import netsvc
-from odoo.tools import DEFAULT_SERVER_DATE_FORMAT
 from odoo import fields, models, api
+from odoo.exceptions import AccessError
 
 
 class hr_contract(models.Model):
@@ -132,7 +129,8 @@ class hr_contract(models.Model):
         return super(hr_contract, self)._onchange_job_id()
 
     @api.multi
-    def condition_trial_period(self):
+    def is_trial_active(self):
+        ''' Returns True if the contract is still on its trial period '''
         self.ensure_one()
 
         if self.trial_date_end and self.trial_date_end > fields.Date.today():
@@ -184,45 +182,59 @@ class hr_contract(models.Model):
 
     @api.multi
     def action_confirm(self):
+        if not self.env.user.has_group('hr.group_hr_manager'):
+            raise AccessError('Only HR managers can perform that action.')
 
         for contract in self:
-            if contract.condition_trial_period():
+            if contract.is_trial_active():
                 contract.state = 'trial'
             else:
-                contract.state_open()
+                contract.state = 'open'
 
+    def action_trial_ending(self):
+        if not self.env.user.has_group('hr.group_hr_manager'):
+            raise AccessError('Only HR managers can perform that action.')
+        self.write({'state': 'trial_ending'})
 
     @api.multi
     def action_ending_contract(self):
+        if not self.env.user.has_group('hr.group_hr_manager'):
+            raise AccessError('Only HR managers can perform that action.')
         self.write({'state': 'contract_ending'})
 
     @api.multi
     def action_trial(self):
         self.write({'state': 'trial'})
-        return True
+
 
     @api.multi
     def action_open(self):
+        if not self.env.user.has_group('hr.group_hr_manager'):
+            raise AccessError('Only HR managers can perform that action.')
         self.write({'state': 'open'})
-        return True
+
 
     @api.multi
     def action_pending_done(self):
+        if not self.env.user.has_group('hr.group_hr_user'):
+            raise AccessError('Only HR users can perform that action.')
         self.write({'state': 'pending_done'})
-        return True
+
 
     @api.multi
     def action_done(self):
+        if not self.env.user.has_group('hr.group_hr_manager'):
+            raise AccessError('Only HR managers can perform that action.')
+        
         for contract in self:
             vals = {'state': 'done',
                     'date_end': False,
                     'job_id': False,
-                    'end_job_id': contract.job_id}
+                    'end_job_id': contract.job_id.id}
 
             if contract.date_end:
                 vals['date_end'] = contract.date_end
             else:
-                vals['date_end'] = fields.Datetime.now()
+                vals['date_end'] = fields.Date.today()
 
-            self.write(vals)
-        return True
+            contract.write(vals)
