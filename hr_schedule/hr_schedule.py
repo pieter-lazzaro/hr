@@ -26,11 +26,11 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from pytz import timezone, utc
 
-from openerp import netsvc
-from openerp.osv import fields, orm
-from openerp.tools import DEFAULT_SERVER_DATETIME_FORMAT as OE_DTFORMAT
-from openerp.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
-from openerp.tools.translate import _
+from odoo import netsvc
+from odoo import fields
+from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as OE_DTFORMAT
+from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
+from odoo.tools.translate import _
 
 import logging
 _logger = logging.getLogger(__name__)
@@ -46,25 +46,23 @@ DAYOFWEEK_SELECTION = [
 ]
 
 
-class week_days(orm.Model):
+class week_days(models.Model):
 
     _name = 'hr.schedule.weekday'
     _description = 'Days of the Week'
 
-    _columns = {
-        'name': fields.char(
-            'Name',
-            size=64,
-            required=True,
-        ),
-        'sequence': fields.integer(
-            'Sequence',
-            required=True,
-        ),
-    }
+    name = fields.Char(
+        'Name',
+        size=64,
+        required=True,
+    )
+    sequence = fields.Integer(
+        'Sequence',
+        required=True,
+    )
 
 
-class hr_schedule(orm.Model):
+class hr_schedule(models.Model):
 
     _name = 'hr.schedule'
     _inherit = ['mail.thread']
@@ -79,121 +77,119 @@ class hr_schedule(orm.Model):
             res[obj.id] = alert_ids
         return res
 
-    _columns = {
-        'name': fields.char(
-            "Description",
-            size=64,
-            required=True,
-            readonly=True,
-            states={'draft': [('readonly', False)]},
-        ),
-        'company_id': fields.many2one(
-            'res.company',
-            'Company',
-            readonly=True,
-        ),
-        'employee_id': fields.many2one(
-            'hr.employee',
-            'Employee',
-            required=True,
-            readonly=True,
-            states={'draft': [('readonly', False)]},
-        ),
-        'template_id': fields.many2one(
-            'hr.schedule.template',
-            'Schedule Template',
-            readonly=True,
-            states={'draft': [('readonly', False)]},
-        ),
-        'detail_ids': fields.one2many(
-            'hr.schedule.detail',
-            'schedule_id',
-            'Schedule Detail',
-            readonly=True,
-            states={'draft': [('readonly', False)]},
-        ),
-        'date_start': fields.date(
-            'Start Date',
-            required=True,
-            readonly=True,
-            states={'draft': [('readonly', False)]}
-        ),
-        'date_end': fields.date(
-            'End Date',
-            required=True,
-            readonly=True,
-            states={'draft': [('readonly', False)]}
-        ),
-        'department_id': fields.related(
-            'employee_id',
-            'department_id',
-            type='many2one',
-            relation='hr.department',
-            string='Department',
-            readonly=True,
-            store={
-                'hr.schedule': (
-                    lambda s, cr, u, ids, ctx: ids,
-                    ['employee_id'],
-                    10,
-                )
-            },
-        ),
-        'alert_ids': fields.function(
-            _compute_alerts,
-            type='one2many',
-            relation='hr.schedule.alert',
-            string='Alerts',
-            method=True,
-            readonly=True,
-        ),
-        'restday_ids1': fields.many2many(
-            'hr.schedule.weekday',
-            'schedule_restdays_rel1',
-            'sched_id',
-            'weekday_id',
-            string='Rest Days Week 1',
-        ),
-        'restday_ids2': fields.many2many(
-            'hr.schedule.weekday',
-            'schedule_restdays_rel2',
-            'sched_id',
-            'weekday_id',
-            string='Rest Days Week 2',
-        ),
-        'restday_ids3': fields.many2many(
-            'hr.schedule.weekday',
-            'schedule_restdays_rel3',
-            'sched_id',
-            'weekday_id',
-            string='Rest Days Week 3',
-        ),
-        'restday_ids4': fields.many2many(
-            'hr.schedule.weekday',
-            'schedule_restdays_rel4',
-            'sched_id',
-            'weekday_id',
-            string='Rest Days Week 4',
-        ),
-        'restday_ids5': fields.many2many(
-            'hr.schedule.weekday',
-            'schedule_restdays_rel5',
-            'sched_id',
-            'weekday_id',
-            string='Rest Days Week 5',
-        ),
-        'state': fields.selection(
-            [
-                ('draft', 'Draft'),
-                ('validate', 'Confirmed'),
-                ('locked', 'Locked'),
-                ('unlocked', 'Unlocked'),
-            ],
-            'State',
-            required=True,
-            readonly=True,
-        ),
-    }
+    name = fields.Char(
+        "Description",
+        size=64,
+        required=True,
+        readonly=True,
+        states={'draft': [('readonly', False)]},
+    )
+    company_id = fields.Many2one(
+        'res.company',
+        'Company',
+        readonly=True,
+    )
+    employee_id = fields.Many2one(
+        'hr.employee',
+        'Employee',
+        required=True,
+        readonly=True,
+        states={'draft': [('readonly', False)]},
+    )
+    template_id = fields.Many2one(
+        'hr.schedule.template',
+        'Schedule Template',
+        readonly=True,
+        states={'draft': [('readonly', False)]},
+    )
+    detail_ids = fields.One2many(
+        'hr.schedule.detail',
+        'schedule_id',
+        'Schedule Detail',
+        readonly=True,
+        states={'draft': [('readonly', False)]},
+    )
+    date_start = fields.Date(
+        'Start Date',
+        required=True,
+        readonly=True,
+        states={'draft': [('readonly', False)]}
+    )
+    date_end = fields.Date(
+        'End Date',
+        required=True,
+        readonly=True,
+        states={'draft': [('readonly', False)]}
+    )
+    department_id = fields.Related(
+        'employee_id',
+        'department_id',
+        type='many2one',
+        relation='hr.department',
+        string='Department',
+        readonly=True,
+        store={
+            'hr.schedule': (
+                lambda s, cr, u, ids, ctx: ids,
+                ['employee_id'],
+                10,
+            )
+        },
+    )
+    alert_ids = fields.Function(
+        _compute_alerts,
+        type='one2many',
+        relation='hr.schedule.alert',
+        string='Alerts',
+        method=True,
+        readonly=True,
+    )
+    restday_ids1 = fields.Many2many(
+        'hr.schedule.weekday',
+        'schedule_restdays_rel1',
+        'sched_id',
+        'weekday_id',
+        string='Rest Days Week 1',
+    )
+    restday_ids2 = fields.Many2many(
+        'hr.schedule.weekday',
+        'schedule_restdays_rel2',
+        'sched_id',
+        'weekday_id',
+        string='Rest Days Week 2',
+    )
+    restday_ids3 = fields.Many2many(
+        'hr.schedule.weekday',
+        'schedule_restdays_rel3',
+        'sched_id',
+        'weekday_id',
+        string='Rest Days Week 3',
+    )
+    restday_ids4 = fields.Many2many(
+        'hr.schedule.weekday',
+        'schedule_restdays_rel4',
+        'sched_id',
+        'weekday_id',
+        string='Rest Days Week 4',
+    )
+    restday_ids5 = fields.Many2many(
+        'hr.schedule.weekday',
+        'schedule_restdays_rel5',
+        'sched_id',
+        'weekday_id',
+        string='Rest Days Week 5',
+    )
+    state = fields.Selection(
+        [
+            ('draft', 'Draft'),
+            ('validate', 'Confirmed'),
+            ('locked', 'Locked'),
+            ('unlocked', 'Unlocked'),
+        ],
+        'State',
+        required=True,
+        readonly=True,
+    )
 
     _defaults = {
         'company_id': (
@@ -243,7 +239,7 @@ WHERE (date_start <= %s and %s <= date_end)
         if len(ids) == 0:
             return None
         elif len(ids) > 1:
-            raise orm.except_orm(_('Programming Error'), _(
+            raise models.except_orm(_('Programming Error'), _(
                 'Employee has a scheduled date in more than one schedule.'))
 
         # If the day is in the middle of the week get the start of the week
@@ -447,7 +443,7 @@ WHERE (date_start <= %s and %s <= date_end)
                     hour, sep, minute = worktime.hour_from.partition(':')
                     toHour, toSep, toMin = worktime.hour_to.partition(':')
                     if len(sep) == 0 or len(toSep) == 0:
-                        raise orm.except_orm(
+                        raise models.except_orm(
                             _('Invalid Time Format'),
                             _('The time should be entered as HH:MM')
                         )
@@ -676,7 +672,7 @@ WHERE (date_start <= %s and %s <= date_end)
         return all_locked is False
 
 
-class schedule_detail(orm.Model):
+class schedule_detail(models.Model):
     _name = "hr.schedule.detail"
     _description = "Schedule Detail"
 
@@ -695,70 +691,69 @@ class schedule_detail(orm.Model):
                 res.append(detail.id)
         return res
 
-    _columns = {
-        'name': fields.char(
-            "Name",
-            size=64,
-            required=True,
-        ),
-        'dayofweek': fields.selection(
-            DAYOFWEEK_SELECTION,
-            'Day of Week',
-            required=True,
-            select=True,
-        ),
-        'date_start': fields.datetime(
-            'Start Date and Time',
-            required=True,
-        ),
-        'date_end': fields.datetime(
-            'End Date and Time',
-            required=True,
-        ),
-        'day': fields.date(
-            'Day',
-            required=True,
-            select=1,
-        ),
-        'schedule_id': fields.many2one(
-            'hr.schedule',
-            'Schedule',
-            required=True,
-        ),
-        'department_id': fields.related(
-            'schedule_id',
-            'department_id',
-            type='many2one',
-            relation='hr.department',
-            string='Department',
-            store=True,
-        ),
-        'employee_id': fields.related(
-            'schedule_id',
-            'employee_id',
-            type='many2one',
-            relation='hr.employee',
-            string='Employee',
-            store=True,
-        ),
-        'alert_ids': fields.one2many(
-            'hr.schedule.alert',
-            'sched_detail_id',
-            'Alerts',
-            readonly=True,
-        ),
-        'state': fields.selection(
-            [
-                ('draft', 'Draft'),
-                ('validate', 'Confirmed'),
-                ('locked', 'Locked'),
-                ('unlocked', 'Unlocked'),
-            ],
-            'State',
-            required=True,
-            readonly=True,
-        ),
-    }
+    name = fields.Char(
+        "Name",
+        size=64,
+        required=True,
+    )
+    dayofweek = fields.Selection(
+        DAYOFWEEK_SELECTION,
+        'Day of Week',
+        required=True,
+        index=True,
+    )
+    date_start = fields.Datetime(
+        'Start Date and Time',
+        required=True,
+    )
+    date_end = fields.Datetime(
+        'End Date and Time',
+        required=True,
+    )
+    day = fields.Date(
+        'Day',
+        required=True,
+        index=1,
+    )
+    schedule_id = fields.Many2one(
+        'hr.schedule',
+        'Schedule',
+        required=True,
+    )
+    department_id = fields.Related(
+        'schedule_id',
+        'department_id',
+        type='many2one',
+        relation='hr.department',
+        string='Department',
+        store=True,
+    )
+    employee_id = fields.Related(
+        'schedule_id',
+        'employee_id',
+        type='many2one',
+        relation='hr.employee',
+        string='Employee',
+        store=True,
+    )
+    alert_ids = fields.One2many(
+        'hr.schedule.alert',
+        'sched_detail_id',
+        'Alerts',
+        readonly=True,
+    )
+    state = fields.Selection(
+        [
+            ('draft', 'Draft'),
+            ('validate', 'Confirmed'),
+            ('locked', 'Locked'),
+            ('unlocked', 'Unlocked'),
+        ],
+        'State',
+        required=True,
+        readonly=True,
+    )
+
     _order = 'schedule_id, date_start, dayofweek'
     _defaults = {
         'dayofweek': '0',
@@ -913,7 +908,7 @@ WHERE (date_start <= %s and %s <= date_end)
 
             # Today's records will be checked tomorrow. Future records can't
             # generate alerts.
-            if strDay >= fields.date.context_today(
+            if strDay >= fields.Date.context_today(
                     self, cr, uid, context=context):
                 continue
 
@@ -958,7 +953,7 @@ WHERE (date_start <= %s and %s <= date_end)
         obj = self.browse(cr, uid, res, context=context)
         attendances = [
             (
-                obj.schedule_id.employee_id.id, fields.date.context_today(
+                obj.schedule_id.employee_id.id, fields.Date.context_today(
                     self, cr, uid, context=context
                 ),
             ),
@@ -1038,55 +1033,54 @@ WHERE (date_start <= %s and %s <= date_end)
         return True
 
 
-class hr_schedule_request(orm.Model):
+class hr_schedule_request(models.Model):
 
     _name = 'hr.schedule.request'
     _description = 'Change Request'
 
     _inherit = ['mail.thread']
 
-    _columns = {
-        'employee_id': fields.many2one(
-            'hr.employee',
-            'Employee',
-            required=True,
-        ),
-        'date': fields.date(
-            'Date',
-            required=True,
-        ),
-        'type': fields.selection(
-            [
-                ('missedp', 'Missed Punch'),
-                ('adjp', 'Punch Adjustment'),
-                ('absence', 'Absence'),
-                ('schedadj', 'Schedule Adjustment'),
-                ('other', 'Other'),
-            ],
-            'Type',
-            required=True,
-        ),
-        'message': fields.text(
-            'Message',
-        ),
-        'state': fields.selection(
-            [
-                ('pending', 'Pending'),
-                ('auth', 'Authorized'),
-                ('denied', 'Denied'),
-                ('cancel', 'Cancelled'),
-            ],
-            'State',
-            required=True,
-            readonly=True,
-        ),
-    }
+    employee_id = fields.Many2one(
+        'hr.employee',
+        'Employee',
+        required=True,
+    )
+    date = fields.Date(
+        'Date',
+        required=True,
+    )
+    type = fields.Selection(
+        [
+            ('missedp', 'Missed Punch'),
+            ('adjp', 'Punch Adjustment'),
+            ('absence', 'Absence'),
+            ('schedadj', 'Schedule Adjustment'),
+            ('other', 'Other'),
+        ],
+        'Type',
+        required=True,
+    )
+    message = fields.Text(
+        'Message',
+    )
+    state = fields.Selection(
+        [
+            ('pending', 'Pending'),
+            ('auth', 'Authorized'),
+            ('denied', 'Denied'),
+            ('cancel', 'Cancelled'),
+        ],
+        'State',
+        required=True,
+        readonly=True,
+    )
+
     _defaults = {
         'state': 'pending',
     }
 
 
-class hr_schedule_alert(orm.Model):
+class hr_schedule_alert(models.Model):
 
     _name = 'hr.schedule.alert'
     _description = 'Attendance Exception'
@@ -1104,63 +1098,62 @@ class hr_schedule_alert(orm.Model):
 
         return res
 
-    _columns = {
-        'name': fields.datetime(
-            'Date and Time',
-            required=True,
-            readonly=True,
-        ),
-        'rule_id': fields.many2one(
-            'hr.schedule.alert.rule',
-            'Alert Rule',
-            required=True,
-            readonly=True,
-        ),
-        'punch_id': fields.many2one(
-            'hr.attendance',
-            'Triggering Punch',
-            readonly=True,
-        ),
-        'sched_detail_id': fields.many2one(
-            'hr.schedule.detail',
-            'Schedule Detail',
-            readonly=True,
-        ),
-        'employee_id': fields.function(
-            _get_employee_id,
-            type='many2one',
-            obj='hr.employee',
-            method=True,
-            store=True,
-            string='Employee',
-            readonly=True,
-        ),
-        'department_id': fields.related(
-            'employee_id',
-            'department_id',
-            type='many2one',
-            store=True,
-            relation='hr.department',
-            string='Department',
-            readonly=True,
-        ),
-        'severity': fields.related(
-            'rule_id',
-            'severity',
-            type='char',
-            string='Severity',
-            store=True,
-            readonly=True,
-        ),
-        'state': fields.selection(
-            [
-                ('unresolved', 'Unresolved'),
-                ('resolved', 'Resolved'),
-            ],
-            'State',
-            readonly=True,
-        ),
-    }
+    name = fields.Datetime(
+        'Date and Time',
+        required=True,
+        readonly=True,
+    )
+    rule_id = fields.Many2one(
+        'hr.schedule.alert.rule',
+        'Alert Rule',
+        required=True,
+        readonly=True,
+    )
+    punch_id = fields.Many2one(
+        'hr.attendance',
+        'Triggering Punch',
+        readonly=True,
+    )
+    sched_detail_id = fields.Many2one(
+        'hr.schedule.detail',
+        'Schedule Detail',
+        readonly=True,
+    )
+    employee_id = fields.Function(
+        _get_employee_id,
+        type='many2one',
+        obj='hr.employee',
+        method=True,
+        store=True,
+        string='Employee',
+        readonly=True,
+    )
+    department_id = fields.Related(
+        'employee_id',
+        'department_id',
+        type='many2one',
+        store=True,
+        relation='hr.department',
+        string='Department',
+        readonly=True,
+    )
+    severity = fields.Related(
+        'rule_id',
+        'severity',
+        type='char',
+        string='Severity',
+        store=True,
+        readonly=True,
+    )
+    state = fields.Selection(
+        [
+            ('unresolved', 'Unresolved'),
+            ('resolved', 'Resolved'),
+        ],
+        'State',
+        readonly=True,
+    )
+
     _defaults = {
         'state': 'unresolved',
     }
@@ -1420,28 +1413,26 @@ class hr_schedule_alert(orm.Model):
                             context=context)
 
 
-class hr_schedule_alert_rule(orm.Model):
+class hr_schedule_alert_rule(models.Model):
 
     _name = 'hr.schedule.alert.rule'
     _description = 'Scheduling/Attendance Exception Rule'
 
-    _columns = {
-        'name': fields.char('Name', size=64, required=True),
-        'code': fields.char('Code', size=10, required=True),
-        'severity': fields.selection((
-            ('low', 'Low'),
-            ('medium', 'Medium'),
-            ('high', 'High'),
-            ('critical', 'Critical'),
-        ), 'Severity', required=True),
-        'grace_period': fields.integer(
-            'Grace Period',
-            help='In the case of early or late rules, the amount of time '
-                 'before/after the scheduled time that the rule will trigger.'
-        ),
-        'window': fields.integer('Window of Activation'),
-        'active': fields.boolean('Active'),
-    }
+    name = fields.Char('Name', size=64, required=True)
+    code = fields.Char('Code', size=10, required=True)
+    severity = fields.Selection((
+        ('low', 'Low'),
+        ('medium', 'Medium'),
+        ('high', 'High'),
+        ('critical', 'Critical'),
+    ), 'Severity', required=True)
+    grace_period = fields.Integer(
+        'Grace Period',
+        help='In the case of early or late rules, the amount of time '
+        'before/after the scheduled time that the rule will trigger.'
+    )
+    window = fields.Integer('Window of Activation')
+    active = fields.Boolean('Active')
 
     _defaults = {
         'active': True,
@@ -1626,35 +1617,33 @@ class hr_schedule_alert_rule(orm.Model):
         return res
 
 
-class hr_schedule_template(orm.Model):
+class hr_schedule_template(models.Model):
 
     _name = 'hr.schedule.template'
     _description = 'Employee Working Schedule Template'
 
-    _columns = {
-        'name': fields.char(
-            "Name",
-            size=64,
-            required=True,
-        ),
-        'company_id': fields.many2one(
-            'res.company',
-            'Company',
-            required=False,
-        ),
-        'worktime_ids': fields.one2many(
-            'hr.schedule.template.worktime',
-            'template_id',
-            'Working Time',
-        ),
-        'restday_ids': fields.many2many(
-            'hr.schedule.weekday',
-            'schedule_template_restdays_rel',
-            'sched_id',
-            'weekday_id',
-            string='Rest Days',
-        ),
-    }
+    name = fields.Char(
+        "Name",
+        size=64,
+        required=True,
+    )
+    company_id = fields.Many2one(
+        'res.company',
+        'Company',
+        required=False,
+    )
+    worktime_ids = fields.One2many(
+        'hr.schedule.template.worktime',
+        'template_id',
+        'Working Time',
+    )
+    restday_ids = fields.Many2many(
+        'hr.schedule.weekday',
+        'schedule_template_restdays_rel',
+        'sched_id',
+        'weekday_id',
+        string='Rest Days',
+    )
 
     _defaults = {
         'company_id': (
@@ -1707,7 +1696,7 @@ class hr_schedule_template(orm.Model):
             fromHour, fromSep, fromMin = worktime.hour_from.partition(':')
             toHour, toSep, toMin = worktime.hour_to.partition(':')
             if len(fromSep) == 0 or len(toSep) == 0:
-                raise orm.except_orm(
+                raise models.except_orm(
                     'Invalid Data', 'Format of working hours is incorrect')
 
             delta += (
@@ -1718,40 +1707,39 @@ class hr_schedule_template(orm.Model):
         return float(delta.seconds / 60) / 60.0
 
 
-class hr_schedule_working_times(orm.Model):
+class hr_schedule_working_times(models.Model):
 
     _name = "hr.schedule.template.worktime"
     _description = "Work Detail"
 
-    _columns = {
-        'name': fields.char(
-            "Name",
-            size=64,
-            required=True,
-        ),
-        'dayofweek': fields.selection(
-            DAYOFWEEK_SELECTION,
-            'Day of Week',
-            required=True,
-            select=True,
-        ),
-        'hour_from': fields.char(
-            'Work From',
-            size=5,
-            required=True,
-            select=True,
-        ),
-        'hour_to': fields.char(
-            "Work To",
-            size=5,
-            required=True,
-        ),
-        'template_id': fields.many2one(
-            'hr.schedule.template',
-            'Schedule Template',
-            required=True,
-        ),
-    }
+    name = fields.Char(
+        "Name",
+        size=64,
+        required=True,
+    )
+    dayofweek = fields.Selection(
+        DAYOFWEEK_SELECTION,
+        'Day of Week',
+        required=True,
+        index=True,
+    )
+    hour_from = fields.Char(
+        'Work From',
+        size=5,
+        required=True,
+        index=True,
+    )
+    hour_to = fields.Char(
+        "Work To",
+        size=5,
+        required=True,
+    )
+    template_id = fields.Many2one(
+        'hr.schedule.template',
+        'Schedule Template',
+        required=True,
+    )
+
     _order = 'dayofweek, name'
 
     def _rec_message(self, cr, uid, ids, context=None):
@@ -1769,31 +1757,28 @@ class hr_schedule_working_times(orm.Model):
     }
 
 
-class contract_init(orm.Model):
+class contract_init(models.Model):
 
     _inherit = 'hr.contract.init'
 
-    _columns = {
-        'sched_template_id': fields.many2one(
-            'hr.schedule.template',
-            'Schedule Template',
-            readonly=True,
-            states={'draft': [('readonly', False)]},
-        ),
-    }
+    sched_template_id = fields.Many2one(
+        'hr.schedule.template',
+        'Schedule Template',
+        readonly=True,
+        states={'draft': [('readonly', False)]},
+    )
 
 
-class hr_contract(orm.Model):
+class hr_contract(models.Model):
 
     _name = 'hr.contract'
     _inherit = 'hr.contract'
-    _columns = {
-        'schedule_template_id': fields.many2one(
-            'hr.schedule.template',
-            'Working Schedule Template',
-            required=True,
-        ),
-    }
+
+    schedule_template_id = fields.Many2one(
+        'hr.schedule.template',
+        'Working Schedule Template',
+        required=True,
+    )
 
     def _get_sched_template(self, cr, uid, context=None):
 
@@ -1808,18 +1793,17 @@ class hr_contract(orm.Model):
     }
 
 
-class hr_attendance(orm.Model):
+class hr_attendance(models.Model):
 
     _name = 'hr.attendance'
     _inherit = 'hr.attendance'
-    _columns = {
-        'alert_ids': fields.one2many(
-            'hr.schedule.alert',
-            'punch_id',
-            'Exceptions',
-            readonly=True,
-        ),
-    }
+
+    alert_ids = fields.One2many(
+        'hr.schedule.alert',
+        'punch_id',
+        'Exceptions',
+        readonly=True,
+    )
 
     def _remove_direct_alerts(self, cr, uid, ids, context=None):
         """Remove alerts directly attached to the attendance and return
@@ -1856,7 +1840,7 @@ class hr_attendance(orm.Model):
 
             # Today's records will be checked tomorrow. Future records can't
             # generate alerts.
-            if strDay >= fields.date.context_today(
+            if strDay >= fields.Date.context_today(
                     self, cr, uid, context=context):
                 continue
 
@@ -1889,7 +1873,7 @@ class hr_attendance(orm.Model):
         obj = self.browse(cr, uid, res, context=context)
         attendances = [
             (
-                obj.employee_id.id, fields.date.context_today(
+                obj.employee_id.id, fields.Date.context_today(
                     self, cr, uid, context=context
                 )
             )
@@ -1937,7 +1921,7 @@ class hr_attendance(orm.Model):
         return res
 
 
-class hr_holidays(orm.Model):
+class hr_holidays(models.Model):
 
     _inherit = 'hr.holidays'
 
@@ -2026,7 +2010,7 @@ class hr_holidays(orm.Model):
         return res
 
 
-class hr_term(orm.Model):
+class hr_term(models.Model):
 
     _inherit = 'hr.employee.termination'
 

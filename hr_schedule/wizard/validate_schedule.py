@@ -19,28 +19,28 @@
 #
 #
 
-from openerp import netsvc
+from odoo import netsvc
 
-from openerp.osv import fields, orm
+from odoo import fields, models
 
 import logging
 _logger = logging.getLogger(__name__)
 
 
-class department_selection(orm.TransientModel):
+class department_selection(models.TransientModel):
 
     _name = 'hr.schedule.validate.departments'
     _description = 'Department Selection for Validation'
 
-    _columns = {
-        'department_ids': fields.many2many(
-            'hr.department',
-            'hr_department_group_rel',
-            'employee_id',
-            'department_id',
-            'Departments',
-        ),
-    }
+
+    department_ids = fields.Many2many(
+        'hr.department',
+        'hr_department_group_rel',
+        'employee_id',
+        'department_id',
+        'Departments',
+    )
+
 
     def view_schedules(self, cr, uid, ids, context=None):
 

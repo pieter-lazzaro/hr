@@ -23,71 +23,71 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from pytz import timezone, utc
 
-from openerp.osv import fields, orm
-from openerp.tools import DEFAULT_SERVER_DATETIME_FORMAT as OE_DTFORMAT
-from openerp.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
-from openerp.tools.translate import _
+from odoo import fields
+from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as OE_DTFORMAT
+from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
+from odoo.tools.translate import _
 
 import logging
 _l = logging.getLogger(__name__)
 
 
-class restday(orm.TransientModel):
+class restday(models.TransientModel):
 
     _name = 'hr.restday.wizard'
     _description = 'Schedule Template Change Wizard'
 
-    _columns = {
-        'employee_id': fields.many2one(
-            'hr.employee',
-            'Employee',
-            required=True,
-        ),
-        'contract_id': fields.related(
-            'employee_id',
-            'contract_id',
-            type='many2one',
-            relation='hr.contract',
-            string='Contract',
-            readonly=True,
-        ),
-        'st_current_id': fields.many2one(
-            'hr.schedule.template',
-            'Current Template',
-            readonly=True,
-        ),
-        'st_new_id': fields.many2one(
-            'hr.schedule.template',
-            'New Template',
-        ),
-        'permanent': fields.boolean(
-            'Make Permanent',
-        ),
-        'temp_restday': fields.boolean(
-            'Temporary Rest Day Change',
-            help="If selected, change the rest day to the specified day only "
-                 "for the selected schedule.",
-        ),
-        'dayofweek': fields.selection(
-            [
-                ('0', 'Monday'),
-                ('1', 'Tuesday'),
-                ('2', 'Wednesday'),
-                ('3', 'Thursday'),
-                ('4', 'Friday'),
-                ('5', 'Saturday'),
-                ('6', 'Sunday')
-            ],
-            'Rest Day',
-            select=True,
-        ),
-        'temp_week_start': fields.date(
-            'Start of Week',
-        ),
-        'week_start': fields.date(
-            'Start of Week',
-        ),
-    }
+
+    employee_id = fields.Many2one(
+        'hr.employee',
+        'Employee',
+        required=True,
+    )
+    contract_id = fields.Related(
+        'employee_id',
+        'contract_id',
+        type='many2one',
+        relation='hr.contract',
+        string='Contract',
+        readonly=True,
+    )
+    st_current_id = fields.Many2one(
+        'hr.schedule.template',
+        'Current Template',
+        readonly=True,
+    )
+    st_new_id = fields.Many2one(
+        'hr.schedule.template',
+        'New Template',
+    )
+    permanent = fields.Boolean(
+        'Make Permanent',
+    )
+    temp_restday = fields.Boolean(
+        'Temporary Rest Day Change',
+        help="If selected, change the rest day to the specified day only "
+                "for the selected schedule.",
+    )
+    dayofweek = fields.Selection(
+        [
+            ('0', 'Monday'),
+            ('1', 'Tuesday'),
+            ('2', 'Wednesday'),
+            ('3', 'Thursday'),
+            ('4', 'Friday'),
+            ('5', 'Saturday'),
+            ('6', 'Sunday')
+        ],
+        'Rest Day',
+        index=True,
+    )
+    temp_week_start = fields.Date(
+        'Start of Week',
+    )
+    week_start = fields.Date(
+        'Start of Week',
+    )
+
 
     _defaults = {
         'temp_restday': False,
@@ -151,7 +151,7 @@ class restday(orm.TransientModel):
             hour, sep, minute = worktime.hour_from.partition(':')
             toHour, toSep, toMin = worktime.hour_to.partition(':')
             if len(sep) == 0 or len(toSep) == 0:
-                raise orm.except_orm(
+                raise models.except_orm(
                     _('Invalid Time Format'),
                     _('The time should be entered as HH:MM'))
 

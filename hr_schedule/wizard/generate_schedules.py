@@ -22,30 +22,30 @@
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-from openerp.osv import fields, orm
+from odoo import fields, models
 
 
-class hr_schedule_generate(orm.TransientModel):
+class hr_schedule_generate(models.TransientModel):
 
     _name = 'hr.schedule.generate'
     _description = 'Generate Schedules'
-    _columns = {
-        'date_start': fields.date(
-            'Start',
-            required=True,
-        ),
-        'no_weeks': fields.integer(
-            'Number of weeks',
-            required=True,
-        ),
-        'employee_ids': fields.many2many(
-            'hr.employee',
-            'hr_employee_schedule_rel',
-            'generate_id',
-            'employee_id',
-            'Employees',
-        ),
-    }
+
+    date_start = fields.Date(
+        'Start',
+        required=True,
+    )
+    no_weeks = fields.Integer(
+        'Number of weeks',
+        required=True,
+    )
+    employee_ids = fields.Many2many(
+        'hr.employee',
+        'hr_employee_schedule_rel',
+        'generate_id',
+        'employee_id',
+        'Employees',
+    )
+
     _defaults = {
         'no_weeks': 2,
     }

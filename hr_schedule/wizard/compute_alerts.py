@@ -22,30 +22,30 @@
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-from openerp.osv import fields, orm
+from odoo import fields, models
 
 
-class compute_alerts(orm.TransientModel):
+class compute_alerts(models.TransientModel):
 
     _name = 'hr.schedule.alert.compute'
     _description = 'Check Alerts'
-    _columns = {
-        'date_start': fields.date(
-            'Start',
-            required=True,
-        ),
-        'date_end': fields.date(
-            'End',
-            required=True,
-        ),
-        'employee_ids': fields.many2many(
-            'hr.employee',
-            'hr_employee_alert_rel',
-            'generate_id',
-            'employee_id',
-            'Employees',
-        ),
-    }
+
+    date_start = fields.Date(
+        'Start',
+        required=True,
+    )
+    date_end = fields.Date(
+        'End',
+        required=True,
+    )
+    employee_ids = fields.Many2many(
+        'hr.employee',
+        'hr_employee_alert_rel',
+        'generate_id',
+        'employee_id',
+        'Employees',
+    )
+
 
     def generate_alerts(self, cr, uid, ids, context=None):
 
@@ -54,7 +54,7 @@ class compute_alerts(orm.TransientModel):
         data = self.read(cr, uid, ids, context=context)[0]
         dStart = datetime.strptime(data['date_start'], '%Y-%m-%d').date()
         dEnd = datetime.strptime(data['date_end'], '%Y-%m-%d').date()
-        dToday = datetime.strptime(fields.date.context_today(
+        dToday = datetime.strptime(fields.Date.context_today(
             self, cr, uid, context=context), '%Y-%m-%d').date()
         if dToday < dEnd:
             dEnd = dToday
