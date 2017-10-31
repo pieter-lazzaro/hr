@@ -11,7 +11,7 @@
             <field eval="True" name="doall"/>
             <field ref="model_hr_contract" name="model_id"/>
             <field name="state">code</field>
-            <field name="code">model.try_ending_contract()</field>
+            <field name="code">model.try_ending_contracts()</field>
         </record>
         
         <record model="ir.cron" id="hr_contract_completed_cron">
