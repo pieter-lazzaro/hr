@@ -20,6 +20,7 @@
 
 from odoo import models, fields
 
+
 class contract_init(models.Model):
 
     _inherit = 'hr.contract.init'
@@ -30,4 +31,3 @@ class contract_init(models.Model):
         readonly=True,
         states={'draft': [('readonly', False)]},
     )
-

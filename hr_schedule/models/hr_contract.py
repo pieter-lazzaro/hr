@@ -27,7 +27,7 @@ class hr_contract(models.Model):
     _inherit = 'hr.contract'
 
     def _get_sched_template(self):
-    
+
         res = False
         init = self.get_latest_initial_values()
         if init is not None and init.sched_template_id:

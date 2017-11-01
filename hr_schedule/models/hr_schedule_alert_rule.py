@@ -21,7 +21,18 @@
 from datetime import datetime
 
 from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as OE_DTFORMAT
-from odoo import models, fields
+from odoo import models, fields, api
+
+
+def within_window(date_scheduled, date_punch_in, window, grace_period=0):
+    difference = 0
+    if date_scheduled >= date_punch_in:
+        difference = abs((date_scheduled - date_punch_in).seconds) / 60
+    else:
+        difference = abs((date_punch_in - date_scheduled).seconds) / 60
+
+    return difference < window and difference > grace_period
+
 
 class hr_schedule_alert_rule(models.Model):
 
@@ -35,193 +46,198 @@ class hr_schedule_alert_rule(models.Model):
         ('medium', 'Medium'),
         ('high', 'High'),
         ('critical', 'Critical'),
-    ), 'Severity', required=True)
+    ), 'Severity', required=True, default='low')
     grace_period = fields.Integer(
         'Grace Period',
         help='In the case of early or late rules, the amount of time '
         'before/after the scheduled time that the rule will trigger.'
     )
     window = fields.Integer('Window of Activation')
-    active = fields.Boolean('Active')
+    active = fields.Boolean('Active', default=True)
 
-    _defaults = {
-        'active': True,
-        'severity': 'low',
-    }
+    @api.multi
+    def check_unscheduled_attendance(self, sched_details, punches):
+        self.ensure_one()
+        res = {'schedule_details': [], 'punches': []}
+        for punch in punches:
+            is_match = False
+            date_punch_in = fields.Datetime.from_string(punch.check_in)
+            for detail in sched_details:
+                date_scheduled = fields.Datetime.from_string(detail.date_start)
+                if within_window(date_scheduled, date_punch_in, self.window):
+                    is_match = True
+                    break
+            if not is_match:
+                res['punches'].append((punch.name_get(), punch.id))
+        return res
 
-    def check_rule(self, cr, uid, rule, sched_details, punches, context=None):
+    @api.multi
+    def check_missed_attendance(self, sched_details, punches):
+        self.ensure_one()
+        res = {'schedule_details': [], 'punches': []}
+        if len(sched_details) > len(punches):
+            for detail in sched_details:
+                is_match = False
+                date_scheduled = fields.Datetime.from_string(detail.date_start)
+                for punch in punches:
+                    date_punch_in = fields.Datetime.from_string(punch.check_in)
+                    if within_window(date_scheduled, date_punch_in, self.window):
+                        is_match = True
+                        break
+                if not is_match:
+                    res['schedule_details'].append(
+                        (detail.date_start, detail.id))
+        return res
+
+    @api.multi
+    def check_unscheduled_ot(self, sched_details, punches):
+        self.ensure_one()
+        res = {'schedule_details': [], 'punches': []}
+        actual_hours = 0
+        sched_hours = 0
+        for detail in sched_details:
+            date_start = fields.Datetime.from_string(detail.date_start)
+            date_end = fields.Datetime.from_string(detail.date_end)
+            sched_hours += float((date_end - date_start).seconds / 60) / 60.0
+
+        dtStart = False
+        for punch in punches:
+            if punch.action == 'sign_in':
+                dtStart = datetime.strptime(
+                    punch.name_get(), '%Y-%m-%d %H:%M:%S')
+            elif punch.action == 'sign_out':
+                dtEnd = datetime.strptime(punch.name_get(), '%Y-%m-%d %H:%M:%S')
+                actual_hours += float(
+                    (dtEnd - dtStart).seconds / 60) / 60.0
+                if actual_hours > 8 >= sched_hours:
+                    res['punches'].append((punch.name_get(), punch.id))
+        return res
+
+    @api.multi
+    def check_tardy(self, sched_details, punches):
+        self.ensure_one()
+        res = {'punches': []}
+        for detail in sched_details:
+            is_match = False
+            date_scheduled = fields.Datetime.from_string(detail.date_start)
+            for punch in punches:
+                date_punch_in = fields.Datetime.from_string(punch.check_in)
+                difference = 0
+                if date_punch_in > date_scheduled:
+                    difference = (date_punch_in - date_scheduled).seconds / 60
+                
+                if self.window > difference  > self.grace_period:
+                    is_match = True
+                    break
+            if is_match:
+                res['punches'].append((punch.name_get(), punch.id))
+        return res
+
+    @api.multi
+    def check_leave_early(self, sched_details, punches):
+        self.ensure_one()
+        res = {'schedule_details': [], 'punches': []}
+        for detail in sched_details:
+            is_match = False
+            date_scheduled = fields.Datetime.from_string(detail.date_end)
+            for punch in punches:
+                date_punch_out = fields.Datetime.from_string(punch.check_out)
+                difference = 0
+                if date_punch_out < date_scheduled:
+                    difference = (date_scheduled - date_punch_out).seconds / 60
+                if self.window > difference > self.grace_period:
+                    is_match = True
+                    break
+            if is_match:
+                res['punches'].append((punch.name_get(), punch.id))
+        return res
+
+    @api.multi
+    def check_arrive_early(self, sched_details, punches):
+        self.ensure_one()
+        res = {'schedule_details': [], 'punches': []}
+        for detail in sched_details:
+            is_match = False
+            date_scheduled = fields.Datetime.from_string(detail.date_start)
+            for punch in punches:
+                date_punch_in = fields.Datetime.from_string(punch.check_in)
+                difference = 0
+                if date_punch_in < date_scheduled:
+                    difference = (date_scheduled - date_punch_in).seconds / 60
+                if self.window > difference > self.grace_period:
+                    is_match = True
+                    break
+            if is_match:
+                res['punches'].append((punch.name_get(), punch.id))
+        return res
+
+    @api.multi
+    def check_leave_late(self, sched_details, punches):
+        self.ensure_one()
+        res = {'schedule_details': [], 'punches': []}
+        for detail in sched_details:
+            is_match = False
+            date_scheduled = fields.Datetime.from_string(detail.date_end)
+            for punch in punches:
+                date_punch_out = fields.Datetime.from_string(punch.check_out)
+                difference = 0
+                if date_punch_out > date_scheduled:
+                    difference = (date_punch_out - date_scheduled).seconds / 60
+                if self.window > difference > self.grace_period:
+                    is_match = True
+                    break
+            if is_match:
+                res['punches'].append((punch.name_get(), punch.id))
+        return res
+
+    @api.multi
+    def check_overlap(self, sched_details, punches):
+        self.ensure_one()
+        res = {'schedule_details': [], 'punches': []}
+        leave_obj = self.env['hr.holidays']
+        for punch in punches:
+            date_punch_in = fields.Datetime.from_string(punch.check_in)
+            date_punch_out = fields.Datetime.from_string(punch.check_out)
+            
+            leave_ids = leave_obj.search([('employee_id', '=', punch.employee_id.id),
+                                            ('type', '=', 'remove'),
+                                            ('date_from', '<=', punch.check_out),
+                                            ('date_to', '>=', punch.check_in),
+                                            ('state', 'in', ['validate', 'validate1'])])
+            if len(leave_ids) > 0:
+                res['punches'].append((punch.name_get(), punch.id))
+                break
+
+        return res
+
+    @api.multi
+    def check_rule(self, sched_details, punches):
         """Identify if the schedule detail or attendance records
         trigger any rule. If they do return the datetime and id of the
         record that triggered it in one of the appropriate lists.
         All schedule detail and attendance records are expected to be
         in sorted order according to datetime.
         """
+        self.ensure_one()
 
-        res = {'schedule_details': [], 'punches': []}
+        if self.code == 'MISSPUNCH':
+            # Not used because attendance rules now enforce correct order
+            pass
+        elif self.code == 'UNSCHEDATT':
+            return self.check_unscheduled_attendance(sched_details, punches)
+        elif self.code == 'MISSATT':
+            return self.check_missed_attendance(sched_details, punches)
+        elif self.code == 'UNSCHEDOT':
+            return self.check_unscheduled_ot(sched_details, punches)
+        elif self.code == 'TARDY':
+            return self.check_tardy(sched_details, punches)
+        elif self.code == 'LVEARLY':
+            return self.check_leave_early(sched_details, punches)
+        elif self.code == 'INEARLY':
+            return self.check_arrive_early(sched_details, punches)
+        elif self.code == 'OUTLATE':
+            return self.check_leave_late(sched_details, punches)
+        elif self.code == 'OVRLP':
+            return self.check_overlap(sched_details, punches)
 
-        if rule.code == 'MISSPUNCH':
-            prev = False
-            for punch in punches:
-                if not prev:
-                    prev = punch
-                    if punch.action != 'sign_in':
-                        res['punches'].append((punch.name, punch.id))
-                elif prev.action == 'sign_in':
-                    if punch.action != 'sign_out':
-                        res['punches'].append((punch.name, punch.id))
-                elif prev.action == 'sign_out':
-                    if punch.action != 'sign_in':
-                        res['punches'].append((punch.name, punch.id))
-                prev = punch
-            if len(punches) > 0 and prev.action != 'sign_out':
-                res['punches'].append((punch.name, punch.id))
-        elif rule.code == 'UNSCHEDATT':
-            for punch in punches:
-                if punch.action == 'sign_in':
-                    isMatch = False
-                    dtPunch = datetime.strptime(
-                        punch.name, '%Y-%m-%d %H:%M:%S')
-                    for detail in sched_details:
-                        dtSched = datetime.strptime(
-                            detail.date_start, '%Y-%m-%d %H:%M:%S')
-                        difference = 0
-                        if dtSched >= dtPunch:
-                            difference = abs((dtSched - dtPunch).seconds) / 60
-                        else:
-                            difference = abs((dtPunch - dtSched).seconds) / 60
-                        if difference < rule.window:
-                            isMatch = True
-                            break
-                    if not isMatch:
-                        res['punches'].append((punch.name, punch.id))
-        elif rule.code == 'MISSATT':
-            if len(sched_details) > len(punches):
-                for detail in sched_details:
-                    isMatch = False
-                    dtSched = datetime.strptime(
-                        detail.date_start, '%Y-%m-%d %H:%M:%S')
-                    for punch in punches:
-                        if punch.action == 'sign_in':
-                            dtPunch = datetime.strptime(
-                                punch.name, '%Y-%m-%d %H:%M:%S')
-                            difference = 0
-                            if dtSched >= dtPunch:
-                                difference = (dtSched - dtPunch).seconds / 60
-                            else:
-                                difference = (dtPunch - dtSched).seconds / 60
-                            if difference < rule.window:
-                                isMatch = True
-                                break
-                    if not isMatch:
-                        res['schedule_details'].append(
-                            (detail.date_start, detail.id))
-        elif rule.code == 'UNSCHEDOT':
-            actual_hours = 0
-            sched_hours = 0
-            for detail in sched_details:
-                dtStart = datetime.strptime(
-                    detail.date_start, '%Y-%m-%d %H:%M:%S')
-                dtEnd = datetime.strptime(detail.date_end, '%Y-%m-%d %H:%M:%S')
-                sched_hours += float((dtEnd - dtStart).seconds / 60) / 60.0
-
-            dtStart = False
-            for punch in punches:
-                if punch.action == 'sign_in':
-                    dtStart = datetime.strptime(
-                        punch.name, '%Y-%m-%d %H:%M:%S')
-                elif punch.action == 'sign_out':
-                    dtEnd = datetime.strptime(punch.name, '%Y-%m-%d %H:%M:%S')
-                    actual_hours += float(
-                        (dtEnd - dtStart).seconds / 60) / 60.0
-                    if actual_hours > 8 >= sched_hours:
-                        res['punches'].append((punch.name, punch.id))
-        elif rule.code == 'TARDY':
-            for detail in sched_details:
-                isMatch = False
-                dtSched = datetime.strptime(
-                    detail.date_start, '%Y-%m-%d %H:%M:%S')
-                for punch in punches:
-                    if punch.action == 'sign_in':
-                        dtPunch = datetime.strptime(
-                            punch.name, '%Y-%m-%d %H:%M:%S')
-                        difference = 0
-                        if dtPunch > dtSched:
-                            difference = (dtPunch - dtSched).seconds / 60
-                        if rule.window > difference > rule.grace_period:
-                            isMatch = True
-                            break
-                if isMatch:
-                    res['punches'].append((punch.name, punch.id))
-        elif rule.code == 'LVEARLY':
-            for detail in sched_details:
-                isMatch = False
-                dtSched = datetime.strptime(
-                    detail.date_end, '%Y-%m-%d %H:%M:%S')
-                for punch in punches:
-                    if punch.action == 'sign_out':
-                        dtPunch = datetime.strptime(
-                            punch.name, '%Y-%m-%d %H:%M:%S')
-                        difference = 0
-                        if dtPunch < dtSched:
-                            difference = (dtSched - dtPunch).seconds / 60
-                        if rule.window > difference > rule.grace_period:
-                            isMatch = True
-                            break
-                if isMatch:
-                    res['punches'].append((punch.name, punch.id))
-        elif rule.code == 'INEARLY':
-            for detail in sched_details:
-                isMatch = False
-                dtSched = datetime.strptime(
-                    detail.date_start, '%Y-%m-%d %H:%M:%S')
-                for punch in punches:
-                    if punch.action == 'sign_in':
-                        dtPunch = datetime.strptime(
-                            punch.name, '%Y-%m-%d %H:%M:%S')
-                        difference = 0
-                        if dtPunch < dtSched:
-                            difference = (dtSched - dtPunch).seconds / 60
-                        if rule.window > difference > rule.grace_period:
-                            isMatch = True
-                            break
-                if isMatch:
-                    res['punches'].append((punch.name, punch.id))
-        elif rule.code == 'OUTLATE':
-            for detail in sched_details:
-                isMatch = False
-                dtSched = datetime.strptime(
-                    detail.date_end, '%Y-%m-%d %H:%M:%S')
-                for punch in punches:
-                    if punch.action == 'sign_out':
-                        dtPunch = datetime.strptime(
-                            punch.name, '%Y-%m-%d %H:%M:%S')
-                        difference = 0
-                        if dtPunch > dtSched:
-                            difference = (dtPunch - dtSched).seconds / 60
-                        if rule.window > difference > rule.grace_period:
-                            isMatch = True
-                            break
-                if isMatch:
-                    res['punches'].append((punch.name, punch.id))
-        elif rule.code == 'OVRLP':
-            leave_obj = self.pool.get('hr.holidays')
-            for punch in punches:
-                if punch.action == 'sign_in':
-                    dtStart = datetime.strptime(
-                        punch.name, '%Y-%m-%d %H:%M:%S')
-                elif punch.action == 'sign_out':
-                    dtEnd = datetime.strptime(punch.name, '%Y-%m-%d %H:%M:%S')
-                    leave_ids = leave_obj.search(
-                        cr, uid, [('employee_id', '=', punch.employee_id.id),
-                                  ('type', '=', 'remove'),
-                                  ('date_from', '<=', dtEnd.strftime(
-                                      OE_DTFORMAT)),
-                                  ('date_to', '>=', dtStart.strftime(
-                                      OE_DTFORMAT)),
-                                  ('state', 'in', ['validate', 'validate1'])],
-                        context=context)
-                    if len(leave_ids) > 0:
-                        res['punches'].append((punch.name, punch.id))
-                        break
-
-        return res
+        return {'schedule_details': [], 'punches': []}

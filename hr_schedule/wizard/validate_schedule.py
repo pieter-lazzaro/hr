@@ -41,35 +41,29 @@ class department_selection(models.TransientModel):
         'Departments',
     )
 
-
-    def view_schedules(self, cr, uid, ids, context=None):
-
-        data = self.read(cr, uid, ids, context=context)[0]
+    def view_schedules(self):
+        self.ensure_one()
         return {
             'view_type': 'form',
             'view_mode': 'tree,form',
             'res_model': 'hr.schedule',
             'domain': [
-                ('department_id', 'in', data['department_ids']),
+                ('department_id', 'in', self.department_ids),
                 ('state', 'in', ['draft']),
             ],
             'type': 'ir.actions.act_window',
             'target': 'new',
             'nodestroy': True,
-            'context': context,
+            'context': self.env.context,
         }
 
-    def do_validate(self, cr, uid, ids, context=None):
+    def do_validate(self):
+        self.ensure_one()
 
-        wkf_service = netsvc.LocalService('workflow')
-        data = self.read(cr, uid, ids, context=context)[0]
-        sched_ids = self.pool.get('hr.schedule').search(
-            cr, uid, [
-                ('department_id', 'in', data['department_ids'])
-            ], context=context
-        )
+        sched_ids = self.env['hr.schedule'].search([
+                ('department_id', 'in', self.department_ids)
+            ])
         for sched_id in sched_ids:
-            wkf_service.trg_validate(
-                uid, 'hr.schedule', sched_id, 'signal_validate', cr)
+            sched_id.signal_validate()
 
         return {'type': 'ir.actions.act_window_close'}

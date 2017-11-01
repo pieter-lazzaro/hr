@@ -22,7 +22,7 @@
 from datetime import datetime
 from dateutil.relativedelta import relativedelta
 
-from odoo import fields, models
+from odoo import fields, models, api
 
 
 class hr_schedule_generate(models.TransientModel):
@@ -37,6 +37,7 @@ class hr_schedule_generate(models.TransientModel):
     no_weeks = fields.Integer(
         'Number of weeks',
         required=True,
+        default=2
     )
     employee_ids = fields.Many2many(
         'hr.employee',
@@ -46,52 +47,48 @@ class hr_schedule_generate(models.TransientModel):
         'Employees',
     )
 
-    _defaults = {
-        'no_weeks': 2,
-    }
+    @api.onchange('date_start')
+    def onchange_start_date(self):
 
-    def onchange_start_date(self, cr, uid, ids, date_start, context=None):
-
-        res = {
-            'value': {
-                'date_start': False,
-            }
-        }
-        if date_start:
-            dStart = datetime.strptime(date_start, '%Y-%m-%d').date()
+        if self.date_start:
+            dStart = datetime.strptime(self.date_start, '%Y-%m-%d').date()
             # The schedule must start on a Monday
             if dStart.weekday() == 0:
-                res['value']['date_start'] = dStart.strftime('%Y-%m-%d')
+                self.date_start = dStart.strftime('%Y-%m-%d')
 
-        return res
 
-    def generate_schedules(self, cr, uid, ids, context=None):
-
-        sched_obj = self.pool.get('hr.schedule')
-        ee_obj = self.pool.get('hr.employee')
-        data = self.read(cr, uid, ids, context=context)[0]
-
-        dStart = datetime.strptime(data['date_start'], '%Y-%m-%d').date()
-        dEnd = dStart + relativedelta(weeks=+data['no_weeks'], days=-1)
-
+    def generate_schedules(self):
+        
+        sched_obj = self.env['hr.schedule']
+        ee_obj = self.env['hr.employee']
+        
+        dStart = fields.Date.from_string(self.date_start)
+        dEnd = dStart + relativedelta(weeks= +self.no_weeks, days= -1)
+        
         sched_ids = []
-        if len(data['employee_ids']) > 0:
-            for ee in ee_obj.browse(
-                    cr, uid, data['employee_ids'], context=context):
-                if (not ee.contract_id
-                        or not ee.contract_id.schedule_template_id):
+        if len(self.employee_ids) > 0:
+            for ee in self.employee_ids:
+                if not ee.contract_id or not ee.contract_id.schedule_template_id:
                     continue
+                
+                # If there are overlapping schedules, don't create
+                #
+                overlap_sched_ids = sched_obj.search([('employee_id', '=', ee.id),
+                                                       ('date_start', '<=', dEnd.strftime('%Y-%m-%d')),
+                                                       ('date_end', '>=', dStart.strftime('%Y-%m-%d'))])
+                if len(overlap_sched_ids) > 0:
+                    continue
+                
                 sched = {
-                    'name': (ee.name + ': ' + data['date_start'] + ' Wk ' +
-                             str(dStart.isocalendar()[1])),
+                    'name': ee.name +': '+ self.date_start +' Wk '+ str(dStart.isocalendar()[1]),
                     'employee_id': ee.id,
                     'template_id': ee.contract_id.schedule_template_id.id,
                     'date_start': dStart.strftime('%Y-%m-%d'),
                     'date_end': dEnd.strftime('%Y-%m-%d'),
                 }
-                sched_ids.append(
-                    sched_obj.create(cr, uid, sched, context=context))
-
+                
+                sched_ids.append(sched_obj.create(sched).id)
+        
         return {
             'view_type': 'form',
             'view_mode': 'tree,form',
@@ -100,5 +97,5 @@ class hr_schedule_generate(models.TransientModel):
             'type': 'ir.actions.act_window',
             'target': 'current',
             'nodestroy': True,
-            'context': context,
+            'context': self.env.context,
         }

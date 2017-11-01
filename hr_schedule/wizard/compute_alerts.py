@@ -47,25 +47,20 @@ class compute_alerts(models.TransientModel):
     )
 
 
-    def generate_alerts(self, cr, uid, ids, context=None):
+    def generate_alerts(self):
 
-        alert_obj = self.pool.get('hr.schedule.alert')
+        alert_obj = self.env['hr.schedule.alert']
 
-        data = self.read(cr, uid, ids, context=context)[0]
-        dStart = datetime.strptime(data['date_start'], '%Y-%m-%d').date()
-        dEnd = datetime.strptime(data['date_end'], '%Y-%m-%d').date()
-        dToday = datetime.strptime(fields.Date.context_today(
-            self, cr, uid, context=context), '%Y-%m-%d').date()
+        dStart = datetime.strptime(self.date_start, '%Y-%m-%d').date()
+        dEnd = datetime.strptime(self.date_end, '%Y-%m-%d').date()
+        dToday = datetime.strptime(fields.Date.context_today(self), '%Y-%m-%d').date()
         if dToday < dEnd:
             dEnd = dToday
 
         dNext = dStart
-        for employee_id in data['employee_ids']:
+        for employee_id in self.employee_ids:
             while dNext <= dEnd:
-                alert_obj.compute_alerts_by_employee(
-                    cr, uid, employee_id, dNext.strftime('%Y-%m-%d'),
-                    context=context
-                )
+                alert_obj.compute_alerts_by_employee(employee_id, dNext.strftime('%Y-%m-%d'))
                 dNext += relativedelta(days=+1)
 
         return {
@@ -73,13 +68,13 @@ class compute_alerts(models.TransientModel):
             'view_mode': 'tree,form',
             'res_model': 'hr.schedule.alert',
             'domain': [
-                ('employee_id', 'in', data['employee_ids']),
+                ('employee_id', 'in', self.employee_ids),
                 '&',
-                ('name', '>=', data['date_start'] + ' 00:00:00'),
-                ('name', '<=', data['date_end'] + ' 23:59:59')
+                ('name', '>=', self.date_start + ' 00:00:00'),
+                ('name', '<=', self.date_end + ' 23:59:59')
             ],
             'type': 'ir.actions.act_window',
             'target': 'current',
             'nodestroy': True,
-            'context': context,
+            'context': self.env.context,
         }

@@ -4,6 +4,7 @@ from odoo.tools.translate import _
 
 from .week_days import DAYOFWEEK_SELECTION
 
+
 class hr_schedule_working_times(models.Model):
 
     _name = "hr.schedule.template.worktime"
@@ -19,27 +20,16 @@ class hr_schedule_working_times(models.Model):
         'Day of Week',
         required=True,
         index=True,
+        default='0'
     )
-    hour_from = fields.Char(
-        'Work From',
-        size=5,
-        required=True,
-        index=True,
-    )
-    hour_to = fields.Char(
-        "Work To",
-        size=5,
-        required=True,
-    )
+    hour_from = fields.Float('Work From', required=True, index=True)
+    hour_to = fields.Float("Work To", required=True)
     template_id = fields.Many2one(
-        'hr.schedule.template',
-        'Schedule Template',
-        required=True,
-    )
+        'hr.schedule.template', 'Schedule Template', required=True)
 
     _order = 'dayofweek, name'
 
-    def _rec_message(self, cr, uid, ids, context=None):
+    def _rec_message(self):
         return _('Duplicate Records!')
 
     _sql_constraints = [
@@ -48,8 +38,3 @@ class hr_schedule_working_times(models.Model):
         ('unique_template_day_to',
          'UNIQUE(template_id, dayofweek, hour_to)', _rec_message),
     ]
-
-    _defaults = {
-        'dayofweek': '0'
-    }
-

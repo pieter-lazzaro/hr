@@ -37,6 +37,7 @@ class hr_schedule_template(models.Model):
         'res.company',
         'Company',
         required=False,
+        default=lambda self: self.env.user.company_id.id
     )
     worktime_ids = fields.One2many(
         'hr.schedule.template.worktime',
@@ -51,16 +52,7 @@ class hr_schedule_template(models.Model):
         string='Rest Days',
     )
 
-    _defaults = {
-        'company_id': (
-            lambda self, cr, uid, context:
-            self.pool.get('res.company')._company_default_get(
-                cr, uid, 'resource.calendar', context=context
-            )
-        ),
-    }
-
-    def get_rest_days(self, cr, uid, t_id, context=None):
+    def get_rest_days(self):
         """If the rest day(s) have been explicitly specified that's
         what is returned, otherwise a guess is returned based on the
         week days that are not scheduled. If an explicit rest day(s)
@@ -69,15 +61,16 @@ class hr_schedule_template(models.Model):
         integers with Monday being 0.
         """
 
-        tpl = self.browse(cr, uid, t_id, context=context)
-        if tpl.restday_ids:
-            res = [rd.sequence for rd in tpl.restday_ids]
+        self.ensure_one()
+
+        if self.restday_ids:
+            res = [rd.sequence for rd in self.restday_ids]
         else:
             weekdays = ['0', '1', '2', '3', '4', '5', '6']
             scheddays = []
             scheddays = [
                 wt.dayofweek
-                for wt in tpl.worktime_ids
+                for wt in self.worktime_ids
                 if wt.dayofweek not in scheddays
             ]
             res = [int(d) for d in weekdays if d not in scheddays]
@@ -88,25 +81,16 @@ class hr_schedule_template(models.Model):
 
         return res
 
-    def get_hours_by_weekday(self, cr, uid, tpl_id, day_no, context=None):
+    def get_hours_by_weekday(self, day_no):
         """Return the number working hours in the template for day_no.
         For day_no 0 is Monday.
         """
+        self.ensure_one()
 
         delta = timedelta(seconds=0)
-        tpl = self.browse(cr, uid, tpl_id, context=context)
-        for worktime in tpl.worktime_ids:
+        for worktime in self.worktime_ids:
             if int(worktime.dayofweek) != day_no:
                 continue
+            delta = delta + (worktime.hour_to - worktime.hour_from)
 
-            fromHour, fromSep, fromMin = worktime.hour_from.partition(':')
-            toHour, toSep, toMin = worktime.hour_to.partition(':')
-            if len(fromSep) == 0 or len(toSep) == 0:
-                raise UserError(_('Invalid Data' 'Format of working hours is incorrect'))
-
-            delta += (
-                datetime.strptime(toHour + ':' + toMin, '%H:%M') -
-                datetime.strptime(fromHour + ':' + fromMin, '%H:%M')
-            )
-
-        return float(delta.seconds / 60) / 60.0
+        return delta

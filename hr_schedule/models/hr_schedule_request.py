@@ -20,6 +20,7 @@
 
 from odoo import models, fields
 
+
 class hr_schedule_request(models.Model):
 
     _name = 'hr.schedule.request'
@@ -60,8 +61,5 @@ class hr_schedule_request(models.Model):
         'State',
         required=True,
         readonly=True,
+        default='pending'
     )
-
-    _defaults = {
-        'state': 'pending',
-    }

@@ -20,10 +20,12 @@
 
 import time
 from datetime import timedelta
+from dateutil.relativedelta import relativedelta
+from pytz import timezone, utc
 
-from odoo import models, fields
+from odoo import models, fields, api
 from odoo.tools.translate import _
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 
 from .week_days import DAYOFWEEK_SELECTION
 
@@ -31,14 +33,14 @@ class schedule_detail(models.Model):
     _name = "hr.schedule.detail"
     _description = "Schedule Detail"
 
-    def _day_compute(self, cr, uid, ids, field_name, args, context=None):
-        res = dict.fromkeys(ids, '')
-        for obj in self.browse(cr, uid, ids, context=context):
-            res[obj.id] = time.strftime(
-                '%Y-%m-%d', time.strptime(obj.date_start, '%Y-%m-%d %H:%M:%S'))
-        return res
+    @api.multi
+    @api.depends('date_start')
+    def _day_compute(self):
+        for obj in self:
+            obj.day = fields.Date.from_string(obj.date_start)
 
-    def _get_ids_from_sched(self, cr, uid, ids, context=None):
+    
+    def _get_ids_from_sched(self):
         res = []
         for sched in self.pool.get('hr.schedule').browse(
                 cr, uid, ids, context=context):
@@ -56,6 +58,7 @@ class schedule_detail(models.Model):
         'Day of Week',
         required=True,
         index=True,
+        default='0'
     )
     date_start = fields.Datetime(
         'Start Date and Time',
@@ -69,6 +72,8 @@ class schedule_detail(models.Model):
         'Day',
         required=True,
         index=1,
+        compute='_day_compute',
+        store=True
     )
     schedule_id = fields.Many2one(
         'hr.schedule',
@@ -77,81 +82,60 @@ class schedule_detail(models.Model):
     )
     department_id = fields.Many2one('hr.department', string='Department', store=True)
     employee_id = fields.Many2one('hr.employee', string='Employee', store=True)
-    alert_ids = fields.One2many(
-        'hr.schedule.alert',
-        'sched_detail_id',
-        'Alerts',
-        readonly=True,
-    )
-    state = fields.Selection(
-        [
+    alert_ids = fields.One2many('hr.schedule.alert','sched_detail_id','Alerts',readonly=True,)
+    state = fields.Selection([
             ('draft', 'Draft'),
             ('validate', 'Confirmed'),
             ('locked', 'Locked'),
             ('unlocked', 'Unlocked'),
         ],
-        'State',
         required=True,
         readonly=True,
+        default='draft'
     )
 
     _order = 'schedule_id, date_start, dayofweek'
-    _defaults = {
-        'dayofweek': '0',
-        'state': 'draft',
-    }
-
-    def _detail_date(self, cr, uid, ids, context=None):
-        for dtl in self.browse(cr, uid, ids, context=context):
-            cr.execute("""\
+    
+    @api.multi
+    @api.constrains('date_start', 'date_end')
+    def _detail_date(self):
+        for dtl in self:
+            self.env.cr.execute("""\
 SELECT id
 FROM hr_schedule_detail
 WHERE (date_start <= %s and %s <= date_end)
   AND schedule_id=%s
   AND id <> %s""", (dtl.date_end, dtl.date_start, dtl.schedule_id.id, dtl.id))
-            if cr.fetchall():
-                return False
+            if self.env.cr.fetchall():
+                raise ValidationError(_('You cannot have scheduled days that overlap!'))
         return True
 
-    def _rec_message(self, cr, uid, ids, context=None):
-        return _('You cannot have scheduled days that overlap!')
-
-    _constraints = [
-        (_detail_date, _rec_message, ['date_start', 'date_end']),
-    ]
-
     def scheduled_hours_on_day(
-            self, cr, uid, employee_id, contract_id, dt, context=None):
+            self, employee_id, contract_id, dt):
         dtDelta = timedelta(seconds=0)
-        shifts = self.scheduled_begin_end_times(
-            cr, uid, employee_id, contract_id, dt, context=context
-        )
+        shifts = self.scheduled_begin_end_times(employee_id, contract_id, dt)
         for start, end in shifts:
             dtDelta += end - start
         return float(dtDelta.seconds / 60) / 60.0
 
     def scheduled_begin_end_times(
-            self, cr, uid, employee_id, contract_id, dt, context=None):
+            self, employee_id, contract_id, dt):
         """Returns a list of tuples containing shift start and end
         times for the day
         """
 
         res = []
-        detail_ids = self.search(cr, uid, [
+        detail_ids = self.search([
             ('schedule_id.employee_id.id', '=', employee_id),
             ('day', '=', dt.strftime(
                 '%Y-%m-%d')),
         ],
-            order='date_start',
-            context=context)
+            order='date_start',)
         if len(detail_ids) > 0:
-            sched_details = self.browse(cr, uid, detail_ids, context=context)
-            for detail in sched_details:
+            for detail in detail_ids:
                 res.append((
-                    datetime.strptime(
-                        detail.date_start, '%Y-%m-%d %H:%M:%S'),
-                    datetime.strptime(
-                        detail.date_end, '%Y-%m-%d %H:%M:%S'),
+                    fields.Datetime.from_string(detail.date_start),
+                    fields.Datetime.from_string(detail.date_end),
                 ))
 
         return res
@@ -159,15 +143,13 @@ WHERE (date_start <= %s and %s <= date_end)
     def scheduled_hours_on_day_from_range(self, d, range_dict):
 
         dtDelta = timedelta(seconds=0)
-        shifts = range_dict[d.strftime(OE_DFORMAT)]
+        shifts = range_dict[fields.Date.to_string(d)]
         for start, end in shifts:
             dtDelta += end - start
 
         return float(dtDelta.seconds / 60) / 60.0
 
-    def scheduled_begin_end_times_range(
-        self, cr, uid, employee_id, contract_id,
-            dStart, dEnd, context=None):
+    def scheduled_begin_end_times_range(self, employee_id, contract_id, dStart, dEnd):
         """Returns a dictionary with the dates in range dtStart - dtEnd
         as keys and a list of tuples containing shift start and end
         times during those days as values
@@ -176,47 +158,39 @@ WHERE (date_start <= %s and %s <= date_end)
         res = {}
         d = dStart
         while d <= dEnd:
-            res.update({d.strftime(OE_DFORMAT): []})
+            res.update({fields.Date.to_string(d): []})
             d += timedelta(days=+1)
 
-        detail_ids = self.search(cr, uid, [
+        detail_ids = self.search([
             ('schedule_id.employee_id.id', '=', employee_id),
-            ('day', '>=', dStart.strftime(
-                '%Y-%m-%d')),
-            ('day', '<=', dEnd.strftime(
-                '%Y-%m-%d')),
+            ('day', '>=', fields.Date.to_string(dStart)),
+            ('day', '<=', fields.Date.to_string(dEnd)),
         ],
-            order='date_start',
-            context=context)
+            order='date_start')
         if len(detail_ids) > 0:
-            sched_details = self.browse(cr, uid, detail_ids, context=context)
-            for detail in sched_details:
+            for detail in detail_ids:
                 res[detail.day].append((
-                    datetime.strptime(
-                        detail.date_start, '%Y-%m-%d %H:%M:%S'),
-                    datetime.strptime(
-                        detail.date_end, '%Y-%m-%d %H:%M:%S'),
+                    fields.Datetime.from_string(detail.date_start),
+                    fields.Datetime.from_string(detail.date_end),
                 ))
 
         return res
 
-    def _remove_direct_alerts(self, cr, uid, ids, context=None):
+    @api.multi
+    def _remove_direct_alerts(self):
         """Remove alerts directly attached to the schedule detail and
         return a unique list of tuples of employee id and schedule
         detail date.
         """
 
-        if isinstance(ids, (int, long)):
-            ids = [ids]
-
-        alert_obj = self.pool.get('hr.schedule.alert')
+        alert_obj = self.env['hr.schedule.alert']
 
         # Remove alerts directly attached to these schedule details
         #
         alert_ids = []
         scheds = []
         sched_keys = []
-        for sched_detail in self.browse(cr, uid, ids, context=context):
+        for sched_detail in self:
 
             [alert_ids.append(alert.id) for alert in sched_detail.alert_ids]
 
@@ -234,14 +208,14 @@ WHERE (date_start <= %s and %s <= date_end)
                 sched_keys.append(key)
 
         if len(alert_ids) > 0:
-            alert_obj.unlink(cr, uid, alert_ids, context=context)
+            alert_obj.browse(alert_ids).unlink()
 
         return scheds
 
-    def _recompute_alerts(self, cr, uid, attendances, context=None):
+    def _recompute_alerts(self, attendances):
         """Recompute alerts for each record in schedule detail."""
 
-        alert_obj = self.pool.get('hr.schedule.alert')
+        alert_obj = self.env['hr.schedule.alert']
 
         # Remove all alerts for the employee(s) for the day and recompute.
         #
@@ -249,126 +223,96 @@ WHERE (date_start <= %s and %s <= date_end)
 
             # Today's records will be checked tomorrow. Future records can't
             # generate alerts.
-            if strDay >= fields.Date.context_today(
-                    self, cr, uid, context=context):
+            if strDay >= fields.Date.context_today(self):
                 continue
 
             # TODO - Someone who cares about DST should fix this
             #
-            data = self.pool.get('res.users').read(
-                cr, uid, uid, ['tz'], context=context)
-            dt = datetime.strptime(strDay + ' 00:00:00', '%Y-%m-%d %H:%M:%S')
-            lcldt = timezone(data['tz']).localize(dt, is_dst=False)
+            user_tz = self.env.user.tz
+            dt = fields.Datetime.from_string(strDay)
+            lcldt = timezone(user_tz).localize(dt, is_dst=False)
             utcdt = lcldt.astimezone(utc)
             utcdtNextDay = utcdt + relativedelta(days=+1)
-            strDayStart = utcdt.strftime('%Y-%m-%d %H:%M:%S')
-            strNextDay = utcdtNextDay.strftime('%Y-%m-%d %H:%M:%S')
+            strDayStart = fields.Datetime.to_string(utcdt)
+            strNextDay = fields.Datetime.to_string(utcdtNextDay)
 
-            alert_ids = alert_obj.search(cr, uid, [
+            alert_ids = alert_obj.search([
                 ('employee_id', '=', ee_id),
                 '&',
                 ('name', '>=', strDayStart),
                 ('name', '<', strNextDay)
-            ], context=context)
-            alert_obj.unlink(cr, uid, alert_ids, context=context)
-            alert_obj.compute_alerts_by_employee(
-                cr, uid, ee_id, strDay, context=context)
+            ])
+            alert_ids.unlink()
+            alert_obj.compute_alerts_by_employee(ee_id, strDay)
 
-    def create(self, cr, uid, vals, context=None):
+    def create(self, vals):
 
         if 'day' not in vals and 'date_start' in vals:
             # TODO - Someone affected by DST should fix this
             #
-            user = self.pool.get('res.users').browse(
-                cr, uid, uid, context=context)
-            local_tz = timezone(user.tz)
-            dtStart = datetime.strptime(vals['date_start'], OE_DTFORMAT)
-            locldtStart = local_tz.localize(dtStart, is_dst=False)
+            user_tz = self.env.user.tz
+            dtStart = fields.Datetime.from_string(vals['date_start'])
+            locldtStart = user_tz.localize(dtStart, is_dst=False)
             utcdtStart = locldtStart.astimezone(utc)
-            dDay = utcdtStart.astimezone(local_tz).date()
+            dDay = utcdtStart.astimezone(user_tz).date()
             vals.update({'day': dDay})
 
-        res = super(schedule_detail, self).create(
-            cr, uid, vals, context=context)
+        res = super(schedule_detail, self).create(vals)
 
-        obj = self.browse(cr, uid, res, context=context)
         attendances = [
             (
-                obj.schedule_id.employee_id.id, fields.Date.context_today(
-                    self, cr, uid, context=context
-                ),
+                res.schedule_id.employee_id.id, fields.Date.context_today(self),
             ),
         ]
-        self._recompute_alerts(cr, uid, attendances, context=context)
+        self._recompute_alerts(attendances)
 
         return res
 
-    def unlink(self, cr, uid, ids, context=None):
+    def unlink(self):
 
-        if isinstance(ids, (int, long)):
-            ids = [ids]
-
-        detail_ids = []
-        for detail in self.browse(cr, uid, ids, context=context):
-            if detail.state in ['draft', 'unlocked']:
-                detail_ids.append(detail.id)
-
+        detail_ids = self.filtered( lambda r: r.state in ['draft', 'unlocked'] )
+        
         # Remove alerts directly attached to the schedule details
         #
-        attendances = self._remove_direct_alerts(
-            cr, uid, detail_ids, context=context)
+        attendances = detail_ids._remove_direct_alerts()
 
-        res = super(schedule_detail, self).unlink(
-            cr, uid, detail_ids, context=context)
+        res = super(schedule_detail, detail_ids).unlink()
 
         # Remove all alerts for the employee(s) for the day and recompute.
         #
-        self._recompute_alerts(cr, uid, attendances, context=context)
+        self._recompute_alerts(attendances)
 
         return res
 
-    def write(self, cr, uid, ids, vals, context=None):
+    def write(self, vals):
 
         # Flag for checking wether we have to recompute alerts
         trigger_alert = False
-        for k, v in vals.iteritems():
+        for k, v in vals.items():
             if k in ['date_start', 'date_end']:
                 trigger_alert = True
 
         if trigger_alert:
             # Remove alerts directly attached to the attendances
             #
-            attendances = self._remove_direct_alerts(
-                cr, uid, ids, context=context)
+            attendances = self._remove_direct_alerts()
 
-        res = super(schedule_detail, self).write(
-            cr, uid, ids, vals, context=context)
+        res = super(schedule_detail, self).write(vals)
 
         if trigger_alert:
             # Remove all alerts for the employee(s) for the day and recompute.
             #
-            self._recompute_alerts(cr, uid, attendances, context=context)
+            self._recompute_alerts(attendances)
 
         return res
 
-    def workflow_lock(self, cr, uid, ids, context=None):
+    def workflow_lock(self):
+        for detail in self:
+            detail.write({'state': 'locked'})
+            detail.schedule_id.signal_lock()
 
-        wkf = netsvc.LocalService('workflow')
-        for detail in self.browse(cr, uid, ids, context=context):
-            self.write(cr, uid, [detail.id], {
-                       'state': 'locked'}, context=context)
-            wkf.trg_validate(
-                uid, 'hr.schedule', detail.schedule_id.id, 'signal_lock', cr)
+    def workflow_unlock(self):
+        for detail in self:
+            detail.write({'state': 'unlocked'})
+            detail.schedule_id.signal_unlock()
 
-        return True
-
-    def workflow_unlock(self, cr, uid, ids, context=None):
-
-        wkf = netsvc.LocalService('workflow')
-        for detail in self.browse(cr, uid, ids, context=context):
-            self.write(cr, uid, [detail.id], {
-                       'state': 'unlocked'}, context=context)
-            wkf.trg_validate(
-                uid, 'hr.schedule', detail.schedule_id.id, 'signal_unlock', cr)
-
-        return True

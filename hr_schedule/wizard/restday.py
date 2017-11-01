@@ -23,10 +23,12 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from pytz import timezone, utc
 
-from odoo import fields, models
+from odoo import fields, models, api
 from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as OE_DTFORMAT
 from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
 from odoo.tools.translate import _
+
+from ..models.week_days import DAYOFWEEK_SELECTION
 
 import logging
 _l = logging.getLogger(__name__)
@@ -37,13 +39,13 @@ class restday(models.TransientModel):
     _name = 'hr.restday.wizard'
     _description = 'Schedule Template Change Wizard'
 
-
     employee_id = fields.Many2one(
         'hr.employee',
         'Employee',
         required=True,
     )
-    contract_id = fields.Many2one('hr.contract', related='employee_id.contract_id', string='Contract', readonly=True)
+    contract_id = fields.Many2one(
+        'hr.contract', related='employee_id.contract_id', string='Contract', readonly=True)
     st_current_id = fields.Many2one(
         'hr.schedule.template',
         'Current Template',
@@ -59,18 +61,11 @@ class restday(models.TransientModel):
     temp_restday = fields.Boolean(
         'Temporary Rest Day Change',
         help="If selected, change the rest day to the specified day only "
-                "for the selected schedule.",
+        "for the selected schedule.",
+        default=False
     )
     dayofweek = fields.Selection(
-        [
-            ('0', 'Monday'),
-            ('1', 'Tuesday'),
-            ('2', 'Wednesday'),
-            ('3', 'Thursday'),
-            ('4', 'Friday'),
-            ('5', 'Saturday'),
-            ('6', 'Sunday')
-        ],
+        DAYOFWEEK_SELECTION,
         'Rest Day',
         index=True,
     )
@@ -81,45 +76,33 @@ class restday(models.TransientModel):
         'Start of Week',
     )
 
+    @api.onchange('employee_id')
+    def onchange_employee(self):
 
-    _defaults = {
-        'temp_restday': False,
-    }
+        if self.employee_id:
+            self.st_current_id = self.employee_id.contract_id.schedule_template_id.id
 
-    def onchange_employee(self, cr, uid, ids, ee_id, context=None):
 
-        res = {'value': {'st_current_id': False}}
-        if ee_id:
-            ee = self.pool.get('hr.employee').browse(
-                cr, uid, ee_id, context=None)
-            res['value'][
-                'st_current_id'] = ee.contract_id.schedule_template_id.id
+    @api.onchange('week_start')
+    def onchange_week(self):
 
-        return res
-
-    def onchange_week(self, cr, uid, ids, newdate):
-
-        res = {'value': {'week_start': newdate}}
-        if newdate:
-            d = datetime.strptime(newdate, "%Y-%m-%d")
+        if self.week_start:
+            d = datetime.strptime(self.week_start, "%Y-%m-%d")
             if d.weekday() != 0:
-                res['value']['week_start'] = False
-                return res
-        return res
+                self.week_start = False
 
-    def onchange_temp_week(self, cr, uid, ids, newdate):
+    @api.onchange('temp_week_start')
+    def onchange_temp_week(self):
 
-        res = {'value': {'temp_week_start': newdate}}
-        if newdate:
-            d = datetime.strptime(newdate, "%Y-%m-%d")
+        if self.temp_week_start:
+            d = datetime.strptime(self.temp_week_start, "%Y-%m-%d")
             if d.weekday() != 0:
-                res['value']['temp_week_start'] = False
-                return res
-        return res
+                self.temp_week_start = False
+                
 
     def _create_detail(
-        self, cr, uid, schedule, actual_dayofweek, template_dayofweek,
-            week_start, context=None):
+        self, schedule, actual_dayofweek, template_dayofweek,
+            week_start):
 
         # First, see if there's a schedule for the actual dayofweek.
         # If so, use it.
@@ -130,7 +113,7 @@ class restday(models.TransientModel):
 
         prevutcdtStart = False
         prevDayofWeek = False
-        user = self.pool.get('res.users').browse(cr, uid, uid, context=context)
+        user = self.env.user
         local_tz = timezone(user.tz)
         dSchedStart = datetime.strptime(schedule.date_start, OE_DFORMAT).date()
         dWeekStart = schedule.date_start < week_start and datetime.strptime(
@@ -141,17 +124,13 @@ class restday(models.TransientModel):
             if worktime.dayofweek != template_dayofweek:
                 continue
 
-            hour, sep, minute = worktime.hour_from.partition(':')
-            toHour, toSep, toMin = worktime.hour_to.partition(':')
-            if len(sep) == 0 or len(toSep) == 0:
-                raise models.except_orm(
-                    _('Invalid Time Format'),
-                    _('The time should be entered as HH:MM'))
-
+            from_hour, from_minute = divmod(worktime.hour_from * 60, 60)
+            to_hour, to_minute = divmod(worktime.hour_to * 60, 60)
+            
             # TODO - Someone affected by DST should fix this
             #
             dtStart = datetime.strptime(
-                dWeekStart.strftime('%Y-%m-%d') + ' ' + hour + ':' + minute +
+                dWeekStart.strftime('%Y-%m-%d') + ' ' + from_hour + ':' + from_minute +
                 ':00', '%Y-%m-%d %H:%M:%S'
             )
             locldtStart = local_tz.localize(dtStart, is_dst=False)
@@ -177,8 +156,8 @@ class restday(models.TransientModel):
                 dDay = prevutcdtStart.astimezone(local_tz).date()
 
             delta_seconds = (
-                datetime.strptime(toHour + ':' + toMin, '%H:%M') -
-                datetime.strptime(hour + ':' + minute, '%H:%M')
+                datetime.strptime(to_hour + ':' + to_minute, '%H:%M') -
+                datetime.strptime(from_hour + ':' + from_minute, '%H:%M')
             ).seconds
             utcdtEnd = utcdtStart + timedelta(seconds=+delta_seconds)
 
@@ -190,27 +169,22 @@ class restday(models.TransientModel):
                 'date_end': utcdtEnd.strftime('%Y-%m-%d %H:%M:%S'),
                 'schedule_id': schedule.id,
             }
-            self.pool.get('hr.schedule').write(
-                cr, uid, schedule.id, {
+            schedule.write({
                     'detail_ids': [(0, 0, val)],
-                }, context=context)
+                })
 
             prevDayofWeek = worktime.dayofweek
             prevutcdtStart = utcdtStart
 
-    def _change_restday(
-            self, cr, uid, employee_id, week_start, dayofweek, context=None):
+    def _change_restday(self, employee_id, week_start, dayofweek):
 
-        sched_obj = self.pool.get('hr.schedule')
-        sched_detail_obj = self.pool.get('hr.schedule.detail')
+        sched_obj = self.env['hr.schedule']
+        sched_detail_obj = self.env['hr.schedule.detail']
 
-        schedule_ids = sched_obj.search(
-            cr, uid, [('employee_id', '=', employee_id),
+        sched = sched_obj.search([('employee_id', '=', employee_id),
                       ('date_start', '<=', week_start),
                       ('date_end', '>=', week_start),
-                      ('state', 'not in', ['locked'])],
-            context=context)
-        sched = sched_obj.browse(cr, uid, schedule_ids[0], context=context)
+                      ('state', 'not in', ['locked'])], limit=1)
         dtFirstDay = datetime.strptime(
             sched.detail_ids[0].date_start, OE_DTFORMAT)
         date_start = (
@@ -222,9 +196,7 @@ class restday(models.TransientModel):
             date_start, OE_DTFORMAT) + relativedelta(weeks=+1)
 
         # First get the current rest days
-        rest_days = sched_obj.get_rest_days_by_id(
-            cr, uid, sched.id, dtFirstDay.strftime(OE_DFORMAT),
-            context=context)
+        rest_days = sched.get_rest_days(dtFirstDay.strftime(OE_DFORMAT))
 
         # Next, remove the schedule detail for the new rest day
         for dtl in sched.detail_ids:
@@ -233,51 +205,33 @@ class restday(models.TransientModel):
                     >= dtNextWeek):
                 continue
             if dtl.dayofweek == dayofweek:
-                sched_detail_obj.unlink(cr, uid, dtl.id, context=context)
+                dtl.unlink()
 
         # Enter the new rest day(s)
         #
-        sched_obj = self.pool.get('hr.schedule')
+        sched_obj = self.env['hr.schedule']
         nrest_days = [dayofweek] + rest_days[1:]
         dSchedStart = datetime.strptime(sched.date_start, OE_DFORMAT).date()
         dWeekStart = sched.date_start < week_start and datetime.strptime(
             week_start, OE_DFORMAT).date() or dSchedStart
         if dWeekStart == dSchedStart:
-            sched_obj.add_restdays(
-                cr, uid, sched, 'restday_ids1', rest_days=nrest_days,
-                context=context
-            )
+            sched.add_restdays('restday_ids1', rest_days=nrest_days,)
         elif dWeekStart == dSchedStart + relativedelta(days=+7):
-            sched_obj.add_restdays(
-                cr, uid, sched, 'restday_ids2', rest_days=nrest_days,
-                context=context
-            )
+            sched.add_restdays('restday_ids2', rest_days=nrest_days)
         elif dWeekStart == dSchedStart + relativedelta(days=+14):
-            sched_obj.add_restdays(
-                cr, uid, sched, 'restday_ids3', rest_days=nrest_days,
-                context=context
-            )
+            sched.add_restdays('restday_ids3', rest_days=nrest_days)
         elif dWeekStart == dSchedStart + relativedelta(days=+21):
-            sched_obj.add_restdays(
-                cr, uid, sched, 'restday_ids4', rest_days=nrest_days,
-                context=context
-            )
+            sched.add_restdays('restday_ids4', rest_days=nrest_days)
         elif dWeekStart == dSchedStart + relativedelta(days=+28):
-            sched_obj.add_restdays(
-                cr, uid, sched, 'restday_ids5', rest_days=nrest_days,
-                context=context
-            )
+            sched.add_restdays('restday_ids5', rest_days=nrest_days)
 
         # Last, add a schedule detail for the first rest day in the week using
         # the template for the new (temp) rest day
         #
         if len(rest_days) > 0:
-            self._create_detail(
-                cr, uid, sched, str(rest_days[0]), dayofweek, week_start,
-                context=context)
+            self._create_detail(sched, str(rest_days[0]), dayofweek, week_start)
 
-    def _remove_add_schedule(
-            self, cr, uid, schedule_id, week_start, tpl_id, context=None):
+    def _remove_add_schedule(self, schedule_id, week_start, tpl_id):
         """Remove the current schedule and add a new one in its place
         according to the new template. If the week that the change
         starts in is not at the beginning of a schedule create two
@@ -285,8 +239,8 @@ class restday(models.TransientModel):
         partial new one.
         """
 
-        sched_obj = self.pool.get('hr.schedule')
-        sched = sched_obj.browse(cr, uid, schedule_id, context=context)
+        sched_obj = self.env['hr.schedule']
+        sched = sched_obj.browse(schedule_id)
 
         vals2 = False
         vals1 = {
@@ -312,78 +266,60 @@ class restday(models.TransientModel):
                 'date_end': sched.date_end,
             }
 
-        sched_obj.unlink(cr, uid, schedule_id, context=context)
+        sched.unlink()
         _l.warning('vals1: %s', vals1)
-        sched_obj.create(cr, uid, vals1, context=context)
+        sched_obj.create(vals1)
         if vals2:
             _l.warning('vals2: %s', vals2)
-            sched_obj.create(cr, uid, vals2, context=context)
+            sched_obj.create(vals2)
 
-    def _change_by_template(
-            self, cr, uid, employee_id, week_start, new_template_id, doall,
-            context=None):
+    def _change_by_template(self, employee_id, week_start, new_template_id, doall):
 
-        sched_obj = self.pool.get('hr.schedule')
+        sched_obj = self.env['hr.schedule']
 
-        schedule_ids = sched_obj.search(
-            cr, uid, [('employee_id', '=', employee_id),
+        schedule_ids = sched_obj.search([('employee_id', '=', employee_id),
                       ('date_start', '<=', week_start),
                       ('date_end', '>=', week_start),
-                      ('state', 'not in', ['locked'])],
-            context=context)
+                      ('state', 'not in', ['locked'])])
 
         # Remove the current schedule and add a new one in its place according
         # to the new template
         #
         if len(schedule_ids) > 0:
-            self._remove_add_schedule(
-                cr, uid, schedule_ids[0], week_start, new_template_id,
-                context=context)
+            self._remove_add_schedule(schedule_ids[0].id, week_start, new_template_id)
 
         # Also, change all subsequent schedules if so directed
         if doall:
-            ids = sched_obj.search(
-                cr, uid, [
+            ids = sched_obj.search([
                     ('employee_id', '=', employee_id),
                     ('date_start', '>', week_start),
                     ('state', 'not in', ['locked'])
-                ], context=context)
+                ])
             for i in ids:
-                self._remove_add_schedule(
-                    cr, uid, i, week_start, new_template_id, context)
+                self._remove_add_schedule(i.id, week_start, new_template_id)
 
-    def change_restday(self, cr, uid, ids, context=None):
-
-        data = self.read(cr, uid, ids[0], [], context=context)
+    def change_restday(self):
 
         # Change the rest day for only one schedule
-        if (data.get('temp_restday')
-                and data.get('dayofweek')
-                and data.get('temp_week_start')):
-            self._change_restday(
-                cr, uid, data['employee_id'][0], data['temp_week_start'],
-                data['dayofweek'], context=context)
+        if (self.temp_restday
+                and self.dayofweek
+                and self.temp_week_start):
+            self._change_restday(self.employee_id, self.temp_week_start,self.dayofweek)
 
         # Change entire week's schedule to the chosen schedule template
-        if (not data.get('temp_restday')
-                and data.get('st_new_id')
-                and data.get('week_start')):
+        if (not self.temp_restday
+                and self.st_new_id
+                and self.week_start):
 
-            if data.get('week_start', False):
-                self._change_by_template(
-                    cr, uid, data['employee_id'][0], data['week_start'],
-                    data['st_new_id'][0], data.get(
-                        'permanent', False),
-                    context=context)
+            if self.week_start:
+                self._change_by_template(self.employee_id.id, self.week_start,
+                    self.st_new_id.id, self.permanent)
 
             # If this change is permanent modify employee's contract to
             # reflect the new template
             #
-            if data.get('permanent', False):
-                self.pool.get('hr.contract').write(
-                    cr, uid, data['contract_id'][0], {
-                        'schedule_template_id': data['st_new_id'][0],
-                    }, context=context)
+            if self.permanent:
+                self.contract_id.schedule_template_id = self.st_new_id
 
         return {
             'name': 'Change Schedule Template',
@@ -392,5 +328,5 @@ class restday(models.TransientModel):
             'res_model': 'hr.restday.wizard',
             'type': 'ir.actions.act_window',
             'target': 'new',
-            'context': context
+            'context': self.env.context
         }

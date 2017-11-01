@@ -45,4 +45,3 @@ class week_days(models.Model):
         'Sequence',
         required=True,
     )
-
