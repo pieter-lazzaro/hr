@@ -20,8 +20,7 @@
 from datetime import datetime, timedelta
 
 from odoo import models, fields
-from odoo.tools.translate import _
-from odoo.exceptions import UserError
+
 
 class hr_schedule_template(models.Model):
 
@@ -46,9 +45,6 @@ class hr_schedule_template(models.Model):
     )
     restday_ids = fields.Many2many(
         'hr.schedule.weekday',
-        'schedule_template_restdays_rel',
-        'sched_id',
-        'weekday_id',
         string='Rest Days',
     )
 
@@ -64,7 +60,7 @@ class hr_schedule_template(models.Model):
         self.ensure_one()
 
         if self.restday_ids:
-            res = [rd.sequence for rd in self.restday_ids]
+            res = self.restday_ids.mapped(lambda r: r.sequence)
         else:
             weekdays = ['0', '1', '2', '3', '4', '5', '6']
             scheddays = []
@@ -82,15 +78,21 @@ class hr_schedule_template(models.Model):
         return res
 
     def get_hours_by_weekday(self, day_no):
-        """Return the number working hours in the template for day_no.
-        For day_no 0 is Monday.
+        """
+        Return the number working hours in the template for day_no.
+        For day_no 0 is Monday. All shifts starting on day_no will 
+        be included.
         """
         self.ensure_one()
 
-        delta = timedelta(seconds=0)
+        delta = 0
         for worktime in self.worktime_ids:
             if int(worktime.dayofweek) != day_no:
                 continue
-            delta = delta + (worktime.hour_to - worktime.hour_from)
+            hours = (worktime.hour_to - worktime.hour_from)
+
+            if hours < 0:
+                hours = hours + 24
+            delta = delta + hours
 
         return delta

@@ -39,7 +39,12 @@ class schedule_detail(models.Model):
         for obj in self:
             obj.day = fields.Date.from_string(obj.date_start)
 
-    
+    @api.depends('schedule_id')
+    def _compute_employee_id(self):
+        for record in self:
+            record.employee_id = record.schedule_id.employee_id
+            record.department_id = record.schedule_id.department_id
+
     def _get_ids_from_sched(self):
         res = []
         for sched in self.pool.get('hr.schedule').browse(
@@ -80,8 +85,9 @@ class schedule_detail(models.Model):
         'Schedule',
         required=True,
     )
-    department_id = fields.Many2one('hr.department', string='Department', store=True)
-    employee_id = fields.Many2one('hr.employee', string='Employee', store=True)
+    department_id = fields.Many2one('hr.department', compute='_compute_employee_id', string='Department', store=True)
+    employee_id = fields.Many2one('hr.employee', compute='_compute_employee_id', string='Employee', store=True)
+
     alert_ids = fields.One2many('hr.schedule.alert','sched_detail_id','Alerts',readonly=True,)
     state = fields.Selection([
             ('draft', 'Draft'),
@@ -113,13 +119,13 @@ WHERE (date_start <= %s and %s <= date_end)
     def scheduled_hours_on_day(
             self, employee_id, contract_id, dt):
         dtDelta = timedelta(seconds=0)
-        shifts = self.scheduled_begin_end_times(employee_id, contract_id, dt)
+        shifts = self.scheduled_begin_end_times(employee_id, dt)
         for start, end in shifts:
             dtDelta += end - start
         return float(dtDelta.seconds / 60) / 60.0
 
     def scheduled_begin_end_times(
-            self, employee_id, contract_id, dt):
+            self, employee_id, dt):
         """Returns a list of tuples containing shift start and end
         times for the day
         """
@@ -149,7 +155,7 @@ WHERE (date_start <= %s and %s <= date_end)
 
         return float(dtDelta.seconds / 60) / 60.0
 
-    def scheduled_begin_end_times_range(self, employee_id, contract_id, dStart, dEnd):
+    def scheduled_begin_end_times_range(self, employee_id, dStart, dEnd):
         """Returns a dictionary with the dates in range dtStart - dtEnd
         as keys and a list of tuples containing shift start and end
         times during those days as values
@@ -250,7 +256,7 @@ WHERE (date_start <= %s and %s <= date_end)
         if 'day' not in vals and 'date_start' in vals:
             # TODO - Someone affected by DST should fix this
             #
-            user_tz = self.env.user.tz
+            user_tz = timezone(self.env.user.tz)
             dtStart = fields.Datetime.from_string(vals['date_start'])
             locldtStart = user_tz.localize(dtStart, is_dst=False)
             utcdtStart = locldtStart.astimezone(utc)

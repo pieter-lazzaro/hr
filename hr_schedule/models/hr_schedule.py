@@ -153,6 +153,11 @@ class hr_schedule(models.Model):
         default='draft'
     )
 
+    @api.depends('employee_id')
+    def _compute_department_id(self):
+        if self.employee_id.department_id:
+            self.department_id = self.employee_id.department_id
+
     @api.constrains('date_start', 'date_end')
     def _schedule_date(self):
         for shd in self:

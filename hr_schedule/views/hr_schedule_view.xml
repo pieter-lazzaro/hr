@@ -387,9 +387,10 @@
             <field name="arch" type="xml">
                 <tree string="Working Time" editable="top">
                     <field name="name"/>
+                    <field name="week"/>
                     <field name="dayofweek"/>
-                    <field name="hour_from"/>
-                    <field name="hour_to"/>
+                    <field name="hour_from"  widget="float_time"/>
+                    <field name="hour_to"  widget="float_time"/>
                 </tree>
             </field>
         </record>
