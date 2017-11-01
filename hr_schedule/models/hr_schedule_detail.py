@@ -306,6 +306,10 @@ WHERE (date_start <= %s and %s <= date_end)
 
         return res
 
+    @api.multi
+    def workflow_validate(self):
+        self.state = 'validate'
+
     def workflow_lock(self):
         for detail in self:
             detail.write({'state': 'locked'})

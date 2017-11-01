@@ -1,23 +1,15 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <openerp>
     <data>
-        
         <!-- Top-level Menu -->
-        <menuitem name="Time and Attendance"
-            id="menu_time_attendance" parent="hr.menu_hr_root" groups="hr.group_hr_user" sequence="1"/>
-        
+        <menuitem name="Time and Attendance" id="menu_time_attendance" parent="hr.menu_hr_root" groups="hr.group_hr_user" sequence="1"/>
         <!-- Put the attendance top-level menu under our submenu -->
         <menuitem id="hr_attendance.menu_hr_attendance" name="Attendances" parent="menu_time_attendance" sequence="10" groups="hr_attendance.group_hr_attendance"/>
-        
         <!-- Scheduling submenu -->
-        <menuitem name="Scheduling"
-            id="menu_hr_root_schedule" parent="menu_time_attendance" groups="hr.group_hr_user" sequence="20"/>
-        
+        <menuitem name="Scheduling" id="menu_hr_root_schedule" parent="menu_time_attendance" groups="hr.group_hr_user" sequence="20"/>
         <!-- Scheduling configuration -->
         <menuitem id="menu_hr_configure_schedule" parent="hr.menu_human_resources_configuration" name="Scheduling" groups="hr.group_hr_manager" sequence="45"/>
-        
         <!-- Schedules -->
-
         <record id="view_hr_schedule_filter" model="ir.ui.view">
             <field name="name">view_hr_schedule_filter</field>
             <field name="model">hr.schedule</field>
@@ -38,7 +30,6 @@
                 </search>
             </field>
         </record>
-    
         <record id="view_hr_schedule_tree" model="ir.ui.view">
             <field name="name">hr.schedule.tree</field>
             <field name="model">hr.schedule</field>
@@ -54,23 +45,22 @@
                 </tree>
             </field>
         </record>
-
         <record id="view_hr_schedule_form" model="ir.ui.view">
             <field name="name">hr.schedule.form</field>
             <field name="model">hr.schedule</field>
             <field name="arch" type="xml">
                 <form string="Employee Schedule" version="7.0">
+                    <header>
+                        <button name="workflow_validate" type="object" states="draft" class="oe_highlight" string="Validate"/>
+                        <field name="state" widget="statusbar"/>
+                    </header>
                     <sheet>
-                        <header>
-                            <button name="signal_validate" type="workflow" states="draft" class="oe_highlight" string="Validate"/>
-                            <field name="state" widget="statusbar"/>
-                        </header>
                         <group col="4">
                             <field name="employee_id" on_change="onchange_employee_start_date(employee_id, date_start)"/>
                             <field name="template_id"/>
                             <label for="date_start" string="Duration"/>
                             <div>
-                                <field name="date_start" class="oe_inline" on_change="onchange_employee_start_date(employee_id, date_start)"/> to
+                                <field name="date_start" class="oe_inline" on_change="onchange_employee_start_date(employee_id, date_start)"/> to                                
                                 <field name="date_end" class="oe_inline"/>
                             </div>
                             <field name="name"/>
@@ -111,7 +101,6 @@
                 </form>
             </field>
         </record>
-
         <record id="open_schedule_view" model="ir.actions.act_window">
             <field name="name">Employee Schedules</field>
             <field name="res_model">hr.schedule</field>
@@ -119,13 +108,8 @@
             <field name="view_mode">tree,form</field>
             <field name="search_view_id" ref="view_hr_schedule_filter" />
         </record>
-        <menuitem action="open_schedule_view"
-                  id="menu_schedule_view"
-                  parent="menu_hr_root_schedule"
-                  sequence="10"/>
-        
+        <menuitem action="open_schedule_view" id="menu_schedule_view" parent="menu_hr_root_schedule" sequence="10"/>
         <!-- Schedule Detail -->
-
         <record id="view_hr_schedule_detail_filter" model="ir.ui.view">
             <field name="name">view_hr_schedule_detail_filter</field>
             <field name="model">hr.schedule.detail</field>
@@ -147,7 +131,6 @@
                 </search>
             </field>
         </record>
-        
         <record id="view_schedule_detail_tree" model="ir.ui.view">
             <field name="name">hr.schedule.detail.tree</field>
             <field name="model">hr.schedule.detail</field>
@@ -164,14 +147,13 @@
                 </tree>
             </field>
         </record>
-        
         <record id="view_schedule_detail_form" model="ir.ui.view">
             <field name="name">hr.schedule.detail.form</field>
             <field name="model">hr.schedule.detail</field>
             <field name="arch" type="xml">
                 <form string="Schedule Detail" version="7.0">
                     <header>
-                        <button name="signal_validate" type="workflow" states="draft" class="oe_highlight" string="Validate"/>
+                        <button name="workflow_validate" type="object" states="draft" class="oe_highlight" string="Validate"/>
                         <field name="state" widget="statusbar"/>
                     </header>
                     <group>
@@ -187,7 +169,6 @@
                 </form>
             </field>
         </record>
-        
         <record id="view_schedule_detail_calendar" model="ir.ui.view">
             <field name="name">hr.schedule.detail.calendar</field>
             <field name="model">hr.schedule.detail</field>
@@ -204,13 +185,8 @@
             <field name="view_mode">tree,form,calendar</field>
             <field name="search_view_id" ref="view_hr_schedule_detail_filter" />
         </record>
-        <menuitem action="open_schedule_detail_view"
-                  id="menu_schedule_detail_view"
-                  parent="menu_hr_root_schedule"
-                  sequence="15"/>
-
+        <menuitem action="open_schedule_detail_view" id="menu_schedule_detail_view" parent="menu_hr_root_schedule" sequence="15"/>
         <!-- Change Request -->
-        
         <record id="view_request_tree" model="ir.ui.view">
             <field name="name">hr.schedule.request.tree</field>
             <field name="model">hr.schedule.request</field>
@@ -222,7 +198,6 @@
                 </tree>
             </field>
         </record>
-        
         <record id="view_request_form" model="ir.ui.view">
             <field name="name">hr.schedule.request.form</field>
             <field name="model">hr.schedule.request</field>
@@ -248,13 +223,8 @@
             <field name="view_type">form</field>
             <field name="view_mode">tree,form</field>
         </record>
-        <menuitem action="open_hr_schedule_request_view"
-                  id="menu_schedule_request_view"
-                  parent="menu_hr_root_schedule"
-                  sequence="20"/>
-        
+        <menuitem action="open_hr_schedule_request_view" id="menu_schedule_request_view" parent="menu_hr_root_schedule" sequence="20"/>
         <!-- Schedule/Attendance Exceptions -->
-        
         <record id="view_alert_filter" model="ir.ui.view">
             <field name="name">hr.schedule.alert.filter</field>
             <field name="model">hr.schedule.alert</field>
@@ -280,7 +250,6 @@
                 </search>
             </field>
         </record>
-        
         <record id="view_alert_tree" model="ir.ui.view">
             <field name="name">hr.schedule.alert.tree</field>
             <field name="model">hr.schedule.alert</field>
@@ -300,18 +269,18 @@
             <field name="arch" type="xml">
                 <form string="Exception" version="7.0">
                     <sheet>
-                    <header>
-                        <field name="state" widget="statusbar"/>
-                    </header>
-                    <group>
-                        <field name="name"/>
-                        <field name="rule_id"/>
-                        <field name="employee_id"/>
-                        <field name="department_id"/>
-                        <field name="severity"/>
-                        <field name="punch_id"/>
-                        <field name="sched_detail_id"/>
-                    </group>
+                        <header>
+                            <field name="state" widget="statusbar"/>
+                        </header>
+                        <group>
+                            <field name="name"/>
+                            <field name="rule_id"/>
+                            <field name="employee_id"/>
+                            <field name="department_id"/>
+                            <field name="severity"/>
+                            <field name="punch_id"/>
+                            <field name="sched_detail_id"/>
+                        </group>
                     </sheet>
                     <div class="oe_chatter">
                         <field name="message_follower_ids" widget="mail_followers"/>
@@ -338,13 +307,8 @@
             <field name="context">{'search_default_group_department': 1}</field>
             <field name="search_view_id" ref="view_alert_filter"/>
         </record>
-        <menuitem action="open_hr_schedule_alert_view"
-                  id="menu_schedule_alert_view"
-                  parent="menu_hr_root_schedule"
-                  sequence="20"/>
-        
+        <menuitem action="open_hr_schedule_alert_view" id="menu_schedule_alert_view" parent="menu_hr_root_schedule" sequence="20"/>
         <!-- Alert Rules -->
-        
         <record id="view_alert_rule_tree" model="ir.ui.view">
             <field name="name">hr.schedule.alert.rule.tree</field>
             <field name="model">hr.schedule.alert.rule</field>
@@ -389,30 +353,24 @@
             <field name="view_type">form</field>
             <field name="view_mode">tree,form</field>
         </record>
-        <menuitem action="open_hr_schedule_alert_rule_view"
-                  id="menu_schedule_alert_rule_view"
-                  parent="menu_hr_configure_schedule"
-                  sequence="20"/>
-        
+        <menuitem action="open_hr_schedule_alert_rule_view" id="menu_schedule_alert_rule_view" parent="menu_hr_configure_schedule" sequence="20"/>
         <!-- Scheduling Templates -->
-        
         <record id="view_hr_schedule_template_form" model="ir.ui.view">
             <field name="name">hr.schedule.template.form</field>
             <field name="model">hr.schedule.template</field>
             <field name="arch" type="xml">
                 <form string="Working Time" version="7.0">
                     <sheet>
-                    <group col="4">
-                        <field name="name"/>
-                        <field name="company_id" groups="base.group_multi_company"/>
-                        <field name="restday_ids" widget="many2many_tags"/>
-                    </group>
-                    <field name="worktime_ids"/>
+                        <group col="4">
+                            <field name="name"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="restday_ids" widget="many2many_tags"/>
+                        </group>
+                        <field name="worktime_ids"/>
                     </sheet>
                 </form>
             </field>
         </record>
-
         <record id="view_hr_schedule_template_tree" model="ir.ui.view">
             <field name="name">hr.schedule.template.tree</field>
             <field name="model">hr.schedule.template</field>
@@ -423,7 +381,6 @@
                 </tree>
             </field>
         </record>
-
         <record id="view_hr_schedule_template_worktime_tree" model="ir.ui.view">
             <field name="name">hr.schedule.template.worktime.tree</field>
             <field name="model">hr.schedule.template.worktime</field>
@@ -436,7 +393,6 @@
                 </tree>
             </field>
         </record>
-
         <record id="view_hr_schedule_template_worktime_form" model="ir.ui.view">
             <field name="name">hr.schedule.template.worktime.form</field>
             <field name="model">hr.schedule.template.worktime</field>
@@ -446,7 +402,7 @@
                         <field name="name"/>
                         <label for="hour_from" string="Hours"/>
                         <div>
-                            <field name="hour_from" widget="float_time" class="oe_inline"/> - 
+                            <field name="hour_from" widget="float_time" class="oe_inline"/> -                             
                             <field name="hour_to" widget="float_time" class="oe_inline"/>
                         </div>
                     </group>
@@ -459,13 +415,8 @@
             <field name="view_type">form</field>
             <field name="view_mode">tree,form</field>
         </record>
-        <menuitem action="open_hr_schedule_template_view"
-                  id="menu_schedule_template_view"
-                  parent="menu_hr_configure_schedule"
-                  sequence="20"/>
-        
+        <menuitem action="open_hr_schedule_template_view" id="menu_schedule_template_view" parent="menu_hr_configure_schedule" sequence="20"/>
         <!-- Employment Contracts -->
-        
         <record id="view_hr_contract_form_inherit" model="ir.ui.view">
             <field name="name">hr.contract.form.inherit.schedule</field>
             <field name="model">hr.contract</field>
@@ -480,9 +431,7 @@
                 </data>
             </field>
         </record>
-        
         <!-- Attendance -->
-        
         <record id="view_hr_attendance_form" model="ir.ui.view">
             <field name="name">hr.attendance.form.inherit.schedule</field>
             <field name="model">hr.attendance</field>
@@ -495,9 +444,7 @@
                 </xpath>
             </field>
         </record>
-
         <!-- Employee Schedule -->
-        
         <record id="act_hr_employee_2_hr_schedule" model="ir.actions.act_window">
             <field name="res_model">hr.schedule</field>
             <field name="view_type">form</field>
@@ -517,9 +464,7 @@
                 </data>
             </field>
         </record>
-        
         <!-- Initial Contract Settings -->
-        
         <record id="view_contract_init_tree" model="ir.ui.view">
             <field name="name">hr.contract.init.tree.schedule</field>
             <field name="model">hr.contract.init</field>
@@ -530,7 +475,6 @@
                 </xpath>
             </field>
         </record>
-        
         <record id="view_contract_init_form" model="ir.ui.view">
             <field name="name">hr.contract.init.form.schedule</field>
             <field name="model">hr.contract.init</field>
@@ -541,6 +485,5 @@
                 </xpath>
             </field>
         </record>
-        
     </data>
 </openerp>
