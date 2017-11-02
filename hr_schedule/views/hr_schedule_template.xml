@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <data>
+        <record id="view_hr_schedule_template_form" model="ir.ui.view">
+            <field name="name">hr.schedule.template.form</field>
+            <field name="model">hr.schedule.template</field>
+            <field name="arch" type="xml">
+                <form string="Working Time" version="7.0">
+                    <sheet>
+                        <group col="4">
+                            <field name="name"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="restday_ids" widget="many2many_tags"/>
+                        </group>
+                        <field name="worktime_ids"/>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="view_hr_schedule_template_calendar" model="ir.ui.view">
+            <field name="name">hr.schedule.template.calendar</field>
+            <field name="model">hr.schedule.template</field>
+            <field name="arch" type="xml">
+                <calendar mode="week" color="schedule_id" date_start="date_start" date_stop="date_end" string="Employee Schedule">
+                    <field name="name"/>
+                </calendar>
+            </field>
+        </record>
+        <record id="view_hr_schedule_template_tree" model="ir.ui.view">
+            <field name="name">hr.schedule.template.tree</field>
+            <field name="model">hr.schedule.template</field>
+            <field name="arch" type="xml">
+                <tree string="Working Time">
+                    <field name="name"/>
+                    <field name="company_id" groups="base.group_multi_company"/>
+                </tree>
+            </field>
+        </record>
+        <record id="view_hr_schedule_template_worktime_tree" model="ir.ui.view">
+            <field name="name">hr.schedule.template.worktime.tree</field>
+            <field name="model">hr.schedule.template.worktime</field>
+            <field name="arch" type="xml">
+                <tree string="Working Time" editable="top">
+                    <field name="name"/>
+                    <field name="week"/>
+                    <field name="dayofweek"/>
+                    <field name="hour_from" widget="float_time"/>
+                    <field name="hour_to" widget="float_time"/>
+                </tree>
+            </field>
+        </record>
+        <record id="view_hr_schedule_template_worktime_form" model="ir.ui.view">
+            <field name="name">hr.schedule.template.worktime.form</field>
+            <field name="model">hr.schedule.template.worktime</field>
+            <field name="arch" type="xml">
+                <form string="Working Time" version="7.0">
+                    <group>
+                        <field name="name"/>
+                        <label for="hour_from" string="Hours"/>
+                        <div>
+                            <field name="hour_from" widget="float_time" class="oe_inline"/> -                                                                                     
+                            <field name="hour_to" widget="float_time" class="oe_inline"/>
+                        </div>
+                    </group>
+                </form>
+            </field>
+        </record>
+        <record id="open_hr_schedule_template_view" model="ir.actions.act_window">
+            <field name="name">Schedule Templates</field>
+            <field name="res_model">hr.schedule.template</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+        <menuitem action="open_hr_schedule_template_view" id="menu_schedule_template_view" parent="menu_hr_configure_schedule" sequence="20"/>
+    </data>
+</odoo>
