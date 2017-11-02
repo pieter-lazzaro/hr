@@ -6,7 +6,7 @@
             <field name="name">hr.schedule.generate.view</field>
             <field name="model">hr.schedule.generate</field>
             <field name="arch" type="xml">
-                <form string="Generate Schedules" version="7.0">
+                <form string="Generate Schedules">
                     <group>
                         <field name="date_start" on_change="onchange_start_date(date_start)"/>
                         <field name="no_weeks"/>
@@ -15,9 +15,9 @@
                         <field name="employee_ids" nolabel="1"/>
                     </group>
                     <newline/>
-                    <group colspan="4" cols="4">
-                        <button name="generate_schedules" type="object" string="Generate" icon="gtk-execute" class="oe_highlight"/>
-                    </group>
+                    <footer>
+                        <button name="generate_schedules" type="object" string="Generate" class="oe_highlight"/>or<button special="cancel" string="Cancel"/>
+                    </footer>
                 </form>
             </field>
         </record>

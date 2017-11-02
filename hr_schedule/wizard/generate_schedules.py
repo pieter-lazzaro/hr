@@ -56,39 +56,39 @@ class hr_schedule_generate(models.TransientModel):
             if dStart.weekday() == 0:
                 self.date_start = dStart.strftime('%Y-%m-%d')
 
-
     def generate_schedules(self):
-        
+
         sched_obj = self.env['hr.schedule']
         ee_obj = self.env['hr.employee']
-        
+
         dStart = fields.Date.from_string(self.date_start)
-        dEnd = dStart + relativedelta(weeks= +self.no_weeks, days= -1)
-        
+        dEnd = dStart + relativedelta(weeks=+self.no_weeks, days=-1)
+
         sched_ids = []
         if len(self.employee_ids) > 0:
             for ee in self.employee_ids:
                 if not ee.contract_id or not ee.contract_id.schedule_template_id:
                     continue
-                
+
                 # If there are overlapping schedules, don't create
                 #
                 overlap_sched_ids = sched_obj.search([('employee_id', '=', ee.id),
-                                                       ('date_start', '<=', dEnd.strftime('%Y-%m-%d')),
-                                                       ('date_end', '>=', dStart.strftime('%Y-%m-%d'))])
+                                                      ('date_start', '<=', dEnd.strftime(
+                                                          '%Y-%m-%d')),
+                                                      ('date_end', '>=', dStart.strftime('%Y-%m-%d'))])
                 if len(overlap_sched_ids) > 0:
                     continue
-                
+
                 sched = {
-                    'name': ee.name +': '+ self.date_start +' Wk '+ str(dStart.isocalendar()[1]),
+                    'name': ee.name + ': ' + self.date_start + ' Wk ' + str(dStart.isocalendar()[1]),
                     'employee_id': ee.id,
                     'template_id': ee.contract_id.schedule_template_id.id,
                     'date_start': dStart.strftime('%Y-%m-%d'),
                     'date_end': dEnd.strftime('%Y-%m-%d'),
                 }
-                
+
                 sched_ids.append(sched_obj.create(sched).id)
-        
+
         return {
             'view_type': 'form',
             'view_mode': 'tree,form',

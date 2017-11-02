@@ -135,7 +135,7 @@
             <field name="name">hr.schedule.detail.tree</field>
             <field name="model">hr.schedule.detail</field>
             <field name="arch" type="xml">
-                <tree string="Schedule Detail" editable="top">
+                <tree string="Schedule Detail">
                     <field name="name"/>
                     <field name="department_id"/>
                     <field name="day"/>

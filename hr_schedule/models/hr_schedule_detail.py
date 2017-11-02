@@ -29,6 +29,7 @@ from odoo.exceptions import UserError, ValidationError
 
 from .week_days import DAYOFWEEK_SELECTION
 
+
 class schedule_detail(models.Model):
     _name = "hr.schedule.detail"
     _description = "Schedule Detail"
@@ -85,23 +86,25 @@ class schedule_detail(models.Model):
         'Schedule',
         required=True,
     )
-    department_id = fields.Many2one('hr.department', compute='_compute_employee_id', string='Department', store=True)
-    employee_id = fields.Many2one('hr.employee', compute='_compute_employee_id', string='Employee', store=True)
+    department_id = fields.Many2one(
+        'hr.department', compute='_compute_employee_id', string='Department', store=True)
+    employee_id = fields.Many2one(
+        'hr.employee', string='Employee', store=True)
 
-    alert_ids = fields.One2many('hr.schedule.alert','sched_detail_id','Alerts',readonly=True,)
+    alert_ids = fields.One2many(
+        'hr.schedule.alert', 'sched_detail_id', 'Alerts', readonly=True,)
     state = fields.Selection([
-            ('draft', 'Draft'),
-            ('validate', 'Confirmed'),
-            ('locked', 'Locked'),
-            ('unlocked', 'Unlocked'),
-        ],
-        required=True,
-        readonly=True,
-        default='draft'
-    )
+        ('draft', 'Draft'),
+        ('validate', 'Confirmed'),
+        ('locked', 'Locked'),
+        ('unlocked', 'Unlocked'),
+    ],
+    required=True,
+    readonly=True,
+    default='draft')
 
     _order = 'schedule_id, date_start, dayofweek'
-    
+
     @api.multi
     @api.constrains('date_start', 'date_end')
     def _detail_date(self):
@@ -113,7 +116,8 @@ WHERE (date_start <= %s and %s <= date_end)
   AND schedule_id=%s
   AND id <> %s""", (dtl.date_end, dtl.date_start, dtl.schedule_id.id, dtl.id))
             if self.env.cr.fetchall():
-                raise ValidationError(_('You cannot have scheduled days that overlap!'))
+                raise ValidationError(
+                    _('You cannot have scheduled days that overlap!'))
         return True
 
     def scheduled_hours_on_day(
@@ -267,7 +271,8 @@ WHERE (date_start <= %s and %s <= date_end)
 
         attendances = [
             (
-                res.schedule_id.employee_id.id, fields.Date.context_today(self),
+                res.schedule_id.employee_id.id, fields.Date.context_today(
+                    self),
             ),
         ]
         self._recompute_alerts(attendances)
@@ -276,8 +281,8 @@ WHERE (date_start <= %s and %s <= date_end)
 
     def unlink(self):
 
-        detail_ids = self.filtered( lambda r: r.state in ['draft', 'unlocked'] )
-        
+        detail_ids = self.filtered(lambda r: r.state in ['draft', 'unlocked'])
+
         # Remove alerts directly attached to the schedule details
         #
         attendances = detail_ids._remove_direct_alerts()
@@ -312,17 +317,15 @@ WHERE (date_start <= %s and %s <= date_end)
 
         return res
 
-    @api.multi
     def workflow_validate(self):
         self.state = 'validate'
 
     def workflow_lock(self):
         for detail in self:
             detail.write({'state': 'locked'})
-            detail.schedule_id.signal_lock()
+            detail.schedule_id.workflow_lock()
 
     def workflow_unlock(self):
         for detail in self:
             detail.write({'state': 'unlocked'})
-            detail.schedule_id.signal_unlock()
-
+            detail.schedule_id.workflow_unlock()
