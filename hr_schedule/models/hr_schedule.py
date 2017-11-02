@@ -19,10 +19,7 @@
 #
 #
 
-import time
-
-
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from dateutil.relativedelta import relativedelta
 from pytz import timezone, utc
 
@@ -332,11 +329,11 @@ WHERE (date_start <= %s and %s <= date_end)
             if schedule.template_id:
 
                 # Get first day of contract
-                dContract = False
-                for c in schedule.employee_id.contract_ids:
-                    d = datetime.strptime(c.date_start, OE_DFORMAT).date()
-                    if not dContract or d < dContract:
-                        dContract = d
+                date_contract_start = False
+                for contract in schedule.employee_id.contract_ids:
+                    d = fields.Date.from_string(contract.date_start)
+                    if not date_contract_start or d < date_contract_start:
+                        date_contract_start = d
 
                 leaves = []
                 leave_ids = leave_obj.search(
@@ -346,98 +343,82 @@ WHERE (date_start <= %s and %s <= date_end)
                                            schedule.date_start),
                      ('state', 'in', ['draft', 'validate', 'validate1'])])
                 for lv in leave_ids:
-                    utcdtFrom = utc.localize(
-                        datetime.strptime(lv.date_from, OE_DTFORMAT),
-                        is_dst=False)
-                    utcdtTo = utc.localize(
-                        datetime.strptime(lv.date_to, OE_DTFORMAT),
-                        is_dst=False)
-                    leaves.append((utcdtFrom, utcdtTo))
+                    leave_from = fields.Datetime.from_string(lv.date_from)
+                    leave_to = fields.Datetime.from_string(lv.date_to)
+                    leaves.append((leave_from, leave_to))
 
-                local_tz = timezone(self.env.user.tz)
-                dCount = datetime.strptime(schedule.date_start,
-                                           '%Y-%m-%d').date()
-                dCountEnd = datetime.strptime(schedule.date_end,
-                                              '%Y-%m-%d').date()
-                dWeekStart = dCount
-                dSchedStart = dCount
-                while dCount <= dCountEnd:
+                user_tz = timezone(self.env.user.tz)
+
+                date_start = fields.Date.from_string(schedule.date_start)
+                date_end = fields.Date.from_string(schedule.date_end)
+
+                date_week_start = date_start
+                date_schedule_start = date_start
+                week_number = 1
+                while date_week_start < date_end:
 
                     # Enter the rest day(s)
                     #
-                    if dCount == dSchedStart:
+                    if date_week_start == date_schedule_start:
                         self.add_restdays(schedule, self.restday_ids1)
-                    elif dCount == dSchedStart + relativedelta(days=+7):
+                    elif date_week_start == date_schedule_start + relativedelta(days=+7):
                         self.add_restdays(schedule, self.restday_ids2)
-                    elif dCount == dSchedStart + relativedelta(days=+14):
+                    elif date_week_start == date_schedule_start + relativedelta(days=+14):
                         self.add_restdays(schedule, self.restday_ids3)
-                    elif dCount == dSchedStart + relativedelta(days=+21):
+                    elif date_week_start == date_schedule_start + relativedelta(days=+21):
                         self.add_restdays(schedule, self.restday_ids4)
-                    elif dCount == dSchedStart + relativedelta(days=+28):
+                    elif date_week_start == date_schedule_start + relativedelta(days=+28):
                         self.add_restdays(schedule, self.restday_ids5)
 
-                    utcdtPrevOut = False
                     for worktime in schedule.template_id.worktime_ids:
-    
+                        
+                        if worktime.week > week_number:
+                            date_week_start = date_week_start + relativedelta(weeks=(worktime.week - week_number))
+                            week_number = worktime.week
+                        
+                        if date_week_start >= date_end:
+                            break
+
                         from_hour, from_minute = divmod(
                             worktime.hour_from * 60, 60)
                         to_hour, to_minute = divmod(worktime.hour_to * 60, 60)
 
-                        # XXX - Someone affected by DST should fix this
-                        #
-                        time_format = '{:.0f}:{:.0f}:00'
+                        date_shift_start = date_week_start + relativedelta(days=+(int(worktime.dayofweek)))
 
-                        dTemp = dWeekStart + \
-                            relativedelta(days=+(int(worktime.dayofweek)))
-                        dtStart = datetime.strptime(
-                            dTemp.strftime('%Y-%m-%d') + ' ' +
-                            time_format.format(from_hour, from_minute),
-                            OE_DTFORMAT)
-                        locldtStart = local_tz.localize(dtStart, is_dst=False)
-                        utcdtStart = locldtStart.astimezone(utc)
-                        dDay = utcdtStart.astimezone(local_tz).date()
+                        
+                        time_shift_start = datetime.combine(date_shift_start, time(int(from_hour), int(from_minute)))
+                        time_shift_start = user_tz.localize(time_shift_start)
 
-                        dtEnd = datetime.strptime(
-                            dTemp.strftime('%Y-%m-%d') + ' ' +
-                            time_format.format(to_hour, to_minute),
-                            OE_DTFORMAT)
-                        locldtEnd = local_tz.localize(dtEnd, is_dst=False)
-                        utcdtEnd = locldtEnd.astimezone(utc)
-                        if utcdtEnd < utcdtStart:
-                            utcdtEnd += relativedelta(days=+1)
-
-                        # If this record appears to be before the previous record it means the
-                        # shift continues into the next day
-                        if utcdtPrevOut and utcdtStart < utcdtPrevOut:
-                            utcdtStart += relativedelta(days=+1)
-                            utcdtEnd += relativedelta(days=+1)
+                        date_shift_end = date_shift_start
+                        if worktime.hour_to < worktime.hour_from:
+                            date_shift_end = date_shift_end + timedelta(days=1)
+                        
+                        time_shift_end = datetime.combine(date_shift_end, time(int(to_hour), int(to_minute)))
+                        time_shift_end = user_tz.localize(time_shift_end)
 
                         # Skip days before start of contract
-                        _d_str = utcdtStart.astimezone(local_tz).strftime(
-                            OE_DFORMAT)
-                        _d = datetime.strptime(_d_str, OE_DFORMAT).date()
-                        if dContract and dContract > _d:
+                        if date_contract_start and date_contract_start > date_shift_start:
                             continue
 
                         # Leave empty holes where there are leaves
                         #
                         _skip = False
-                        for utcdtFrom, utcdtTo in leaves:
-                            if utcdtFrom <= utcdtStart and utcdtTo >= utcdtEnd:
+                        for leave_from, leave_to in leaves:
+                            if leave_from <= time_shift_start and leave_to >= time_shift_end:
                                 _skip = True
                                 break
-                            elif utcdtFrom > utcdtStart and utcdtFrom <= utcdtEnd:
-                                if utcdtTo == utcdtEnd:
+                            elif leave_from > time_shift_start and leave_from <= time_shift_end:
+                                if leave_to == time_shift_end:
                                     _skip = True
                                 else:
-                                    utcdtEnd = utcdtFrom + timedelta(
+                                    time_shift_end = leave_from + timedelta(
                                         seconds=-1)
                                 break
-                            elif utcdtTo >= utcdtStart and utcdtTo < utcdtEnd:
-                                if utcdtTo == utcdtEnd:
+                            elif leave_to >= time_shift_start and leave_to < time_shift_end:
+                                if leave_to == time_shift_end:
                                     _skip = True
                                 else:
-                                    utcdtStart = utcdtTo + timedelta(
+                                    time_shift_start = leave_to + timedelta(
                                         seconds=+1)
                                 break
 
@@ -445,9 +426,9 @@ WHERE (date_start <= %s and %s <= date_end)
                         # they are locked.
                         #
                         for detail in schedule.detail_ids:
-                            if detail.day == dDay.strftime(OE_DFORMAT) and              \
-                                    utcdtStart.strftime(OE_DTFORMAT) >= detail.date_start and \
-                                    utcdtStart.strftime(OE_DTFORMAT) <= detail.date_end:
+                            if detail.day == fields.Date.to_string(date_shift_start) and              \
+                                    fields.Datetime.to_string(time_shift_start) >= detail.date_start and \
+                                    fields.Datetime.to_string(time_shift_start) <= detail.date_end:
                                 _skip = True
                                 break
 
@@ -458,21 +439,19 @@ WHERE (date_start <= %s and %s <= date_end)
                                 'dayofweek':
                                 worktime.dayofweek,
                                 'day':
-                                dDay,
+                                fields.Date.to_string(date_shift_start),
                                 'date_start':
-                                utcdtStart.strftime('%Y-%m-%d %H:%M:%S'),
+                                fields.Datetime.to_string(time_shift_start.astimezone(utc)),
                                 'date_end':
-                                utcdtEnd.strftime('%Y-%m-%d %H:%M:%S'),
+                                fields.Datetime.to_string(time_shift_end.astimezone(utc)),
                                 'schedule_id':
                                 schedule.id,
                             }
                             schedule.write({'detail_ids': [(0, 0, val)]})
 
-                        utcdtPrevOut = utcdtEnd
+                    date_week_start = date_week_start + relativedelta(weeks=+1)
 
-                    dCount = dWeekStart + relativedelta(weeks=+1)
-                    dWeekStart = dCount
-
+    @api.model
     def create(self, vals):
 
         my_id = super(hr_schedule, self).create(vals)
