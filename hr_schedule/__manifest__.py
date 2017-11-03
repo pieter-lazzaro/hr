@@ -48,6 +48,7 @@ Easily create, manage, and track employee schedules.
         'data/hr_schedule_data.xml',
         'data/hr_schedule_mail_types.xml',
         'views/hr_schedule_view.xml',
+        'views/hr_schedule_template.xml',
         'wizard/validate_schedule_view.xml',
         'wizard/compute_alerts_view.xml',
         'wizard/generate_schedules_view.xml',

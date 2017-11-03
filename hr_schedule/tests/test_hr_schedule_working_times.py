@@ -19,7 +19,6 @@
 ##############################################################################
 
 
-
 from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 import pytz
@@ -30,7 +29,7 @@ from odoo.exceptions import UserError
 
 
 class test_hr_schedule_working_times(common.TransactionCase):
-    
+
     def setUp(self):
         super(test_hr_schedule_working_times, self).setUp()
 
@@ -40,7 +39,8 @@ class test_hr_schedule_working_times(common.TransactionCase):
         self.worktime_model = self.env['hr.schedule.template.worktime']
         self.contract_model = self.env['hr.contract']
 
-        self.employee = self.env['hr.employee'].create({'name': 'test employee'})
+        self.employee = self.env['hr.employee'].create(
+            {'name': 'test employee'})
         self.contract = self.contract_model.create({
             'name': 'test',
             'employee_id': self.employee.id,
@@ -48,11 +48,14 @@ class test_hr_schedule_working_times(common.TransactionCase):
         })
         self.shifts = 0
 
+    def _datetimestamp_as_utc(self, year, month, day, hour=0, minute=0):
+        dt = self._datetime(year, month, day, hour, minute)
+        return fields.Datetime.to_string(dt.astimezone(pytz.utc))
 
     def _datetime(self, year, month, day, hour=0, minute=0, tzinfo=None):
         if tzinfo is None:
             tzinfo = pytz.timezone(self.env.user.tz)
-        
+
         d = datetime(year, month, day, hour, minute)
         return tzinfo.localize(d)
 
@@ -76,8 +79,8 @@ class test_hr_schedule_working_times(common.TransactionCase):
             'template_id': template.id
         })
 
-    def test_date_calculations(self):
-        """ Test worktimes date calculations """
+    def test_basic_date_calculations(self):
+        """ Test basic worktimes date calculations """
         start_of_week = datetime(2017, 10, 30)
 
         template = self.template_model.create({
@@ -85,17 +88,45 @@ class test_hr_schedule_working_times(common.TransactionCase):
         })
 
         shift = self._create_shift(template, 1, '0', 9.0, 12.5)
-        
         shift.start_of_week = start_of_week
-        
-        self.assertEqual(shift.date_start, '2017-10-30 09:00:00')
-        self.assertEqual(shift.date_end, '2017-10-30 12:30:00')
 
-        shift.date_start = '2017-10-30 10:00:00'
-        shift.date_end = '2017-10-30 13:30:00'
+        date_start = self._datetimestamp_as_utc(2017, 10, 30, 9, 0)
+        date_end = self._datetimestamp_as_utc(2017, 10, 30, 12, 30)
 
-        shift._set_date_start()
-        shift._set_date_end()
-        
+        self.assertEqual(shift.date_start, date_start)
+        self.assertEqual(shift.date_end, date_end)
+
+        shift.date_start = self._datetimestamp_as_utc(2017, 10, 30, 10, 0)
+        shift.date_end = self._datetimestamp_as_utc(2017, 10, 30, 13, 30)
+
+        shift._set_dates()
+
         self.assertEqual(shift.hour_from, 10.0)
         self.assertEqual(shift.hour_to, 13.5)
+
+    def test_multiple_week_date_calculations(self):
+        """ Test multiple week worktimes date calculations """
+        start_of_week = datetime(2017, 10, 30)
+
+        template = self.template_model.create({
+            'name': 'test template'
+        })
+
+        shift = self._create_shift(template, 2, '0', 9.0, 12.5)
+        shift.start_of_week = start_of_week
+
+        date_start = self._datetimestamp_as_utc(2017, 11, 6, 9, 0)
+        date_end = self._datetimestamp_as_utc(2017, 11, 6, 12, 30)
+
+        self.assertEqual(shift.date_start, date_start)
+        self.assertEqual(shift.date_end, date_end)
+
+        shift.date_start = self._datetimestamp_as_utc(2017, 11, 6, 10, 0)
+        shift.date_end = self._datetimestamp_as_utc(2017, 11, 6, 13, 30)
+
+        shift._set_dates()
+
+        self.assertEqual(shift.hour_from, 10.0)
+        self.assertEqual(shift.hour_to, 13.5)
+        self.assertEqual(shift.dayofweek, '0')
+        self.assertEqual(shift.week, 2)

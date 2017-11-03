@@ -379,25 +379,11 @@ WHERE (date_start <= %s and %s <= date_end)
                         if date_week_start >= date_end:
                             break
 
-                        from_hour, from_minute = divmod(
-                            worktime.hour_from * 60, 60)
-                        to_hour, to_minute = divmod(worktime.hour_to * 60, 60)
-
-                        date_shift_start = date_week_start + relativedelta(days=+(int(worktime.dayofweek)))
-
+                        time_shift_start = worktime.get_date_start(date_schedule_start)
+                        time_shift_end = worktime.get_date_end(date_schedule_start)
                         
-                        time_shift_start = datetime.combine(date_shift_start, time(int(from_hour), int(from_minute)))
-                        time_shift_start = user_tz.localize(time_shift_start)
-
-                        date_shift_end = date_shift_start
-                        if worktime.hour_to < worktime.hour_from:
-                            date_shift_end = date_shift_end + timedelta(days=1)
-                        
-                        time_shift_end = datetime.combine(date_shift_end, time(int(to_hour), int(to_minute)))
-                        time_shift_end = user_tz.localize(time_shift_end)
-
                         # Skip days before start of contract
-                        if date_contract_start and date_contract_start > date_shift_start:
+                        if date_contract_start and date_contract_start > time_shift_start.date():
                             continue
 
                         # Leave empty holes where there are leaves
@@ -426,7 +412,7 @@ WHERE (date_start <= %s and %s <= date_end)
                         # they are locked.
                         #
                         for detail in schedule.detail_ids:
-                            if detail.day == fields.Date.to_string(date_shift_start) and              \
+                            if detail.day == fields.Date.to_string(time_shift_start.date()) and              \
                                     fields.Datetime.to_string(time_shift_start) >= detail.date_start and \
                                     fields.Datetime.to_string(time_shift_start) <= detail.date_end:
                                 _skip = True
@@ -439,7 +425,7 @@ WHERE (date_start <= %s and %s <= date_end)
                                 'dayofweek':
                                 worktime.dayofweek,
                                 'day':
-                                fields.Date.to_string(date_shift_start),
+                                fields.Date.to_string(time_shift_start.date()),
                                 'date_start':
                                 fields.Datetime.to_string(time_shift_start.astimezone(utc)),
                                 'date_end':
