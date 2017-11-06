@@ -125,7 +125,7 @@ class test_hr_schedule(common.TransactionCase):
 
     def test_generate_multiple_week_schedule(self):
         """ Test a multiple week schedule template can generate a schedule """
-        start_of_week = date.today() - relativedelta(days=date.today().weekday())
+        start_of_week = datetime(2017, 10, 30)
         end_of_week = start_of_week + relativedelta(weeks=2) - relativedelta(days=1)
 
         template = self.template_model.create({
@@ -174,7 +174,7 @@ class test_hr_schedule(common.TransactionCase):
 
     def test_generate_partial_multiple_week_schedule(self):
         """ Test a only half a multiple week schedule template """
-        start_of_week = date.today() - relativedelta(days=date.today().weekday())
+        start_of_week = datetime(2017, 10, 30)
         end_of_week = start_of_week + relativedelta(weeks=1) - relativedelta(days=1)
 
         template = self.template_model.create({
@@ -219,7 +219,7 @@ class test_hr_schedule(common.TransactionCase):
 
     def test_generate_overnight_schedule(self):
         """ Test a only half a multiple week schedule template """
-        start_of_week = date.today() - relativedelta(days=date.today().weekday())
+        start_of_week = datetime(2017, 10, 30)
         end_of_week = start_of_week + relativedelta(weeks=1) - relativedelta(days=1)
 
         template = self.template_model.create({
