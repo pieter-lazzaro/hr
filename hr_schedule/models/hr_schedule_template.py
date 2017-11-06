@@ -48,6 +48,18 @@ class hr_schedule_template(models.Model):
         string='Rest Days',
     )
 
+    def view_calendar(self):
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'hr.schedule.template.worktime',
+            'views': [(False, 'calendar')],
+            'domain': [('template_id', '=', self.id)],
+            'target':'new',
+            'nodestroy': True,
+            'context': self.env.context
+        }
+
     def get_rest_days(self):
         """If the rest day(s) have been explicitly specified that's
         what is returned, otherwise a guess is returned based on the

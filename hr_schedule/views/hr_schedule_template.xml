@@ -7,7 +7,7 @@
             <field name="arch" type="xml">
                 <form string="Working Time" version="7.0">
                     <header>
-                        <button type="action" name="%(open_schedule_template_calendar)d" string="View Calendar" />
+                        <button type="object" name="view_calendar" string="View Calendar" />
                     </header>
                     <sheet>
                         <group col="4">
@@ -40,7 +40,13 @@
             <field name="name">hr.schedule.template.worktime.calendar</field>
             <field name="model">hr.schedule.template.worktime</field>
             <field name="arch" type="xml">
-                <calendar mode="week" color="template_id" date_start="date_start" date_stop="date_end" string="Schedule Template">
+                <calendar 
+                    mode="week" 
+                    color="template_id" 
+                    date_start="date_start" 
+                    date_stop="date_end" 
+                    string="Schedule Template"
+                    event_open_popup="true">
                     <field name="name"/>
                 </calendar>
             </field>
@@ -65,6 +71,7 @@
                 <form string="Working Time" version="7.0">
                     <group>
                         <field name="name"/>
+                        <field name="week" />
                         <label for="hour_from" string="Hours"/>
                         <div>
                             <field name="hour_from" widget="float_time" class="oe_inline"/> -                                                                                                                 

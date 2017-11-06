@@ -78,6 +78,22 @@ class test_hr_schedule_working_times(common.TransactionCase):
             'hour_to': hour_to,
             'template_id': template.id
         })
+    
+    def test_start_of_week_calculations(self):
+        """ Test start of week calculations """
+
+        test_cases = [
+            (date(2017, 10, 30), date(2017, 10, 30)),
+            (date(2017, 11, 1), date(2017, 10, 30)),
+            (date(2017, 11, 2), date(2017, 10, 30)),
+            (date(2017, 11, 3), date(2017, 10, 30)),
+            (date(2017, 11, 4), date(2017, 10, 30)),
+            (date(2017, 11, 5), date(2017, 11, 6)),
+        ]
+
+        for today, expected in test_cases:
+            self.assertEqual(expected, self.worktime_model.get_start_of_week(today), msg=today.isoformat())
+
 
     def test_basic_date_calculations(self):
         """ Test basic worktimes date calculations """
@@ -130,3 +146,22 @@ class test_hr_schedule_working_times(common.TransactionCase):
         self.assertEqual(shift.hour_to, 13.5)
         self.assertEqual(shift.dayofweek, '0')
         self.assertEqual(shift.week, 2)
+
+    def test_quick_create(self):
+        """ Test create will work with the data passed from a quick add """
+
+        template = self.template_model.create({
+            'name': 'test template'
+        })
+
+        shift = self.worktime_model.with_context(
+            active_id=template.id,
+            active_model="hr.schedule.template"
+        ).create({
+            'name': 'test shift',
+            'start_of_week': self._datetimestamp_as_utc(2017, 10, 30),
+            'date_start': self._datetimestamp_as_utc(2017, 11, 6, 9, 0),
+            'date_end': self._datetimestamp_as_utc(2017, 11, 6, 12, 30),
+        })
+
+        self.assertEqual(shift.template_id.id, template.id)
