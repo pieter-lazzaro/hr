@@ -19,85 +19,76 @@
 #
 
 
-from datetime import datetime, timedelta
-
-from odoo import models, api
-from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as OE_DTFORMAT
-from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
+from odoo import models, api, fields
 
 
-class hr_holidays(models.Model):
+def is_shift_missed(shift, leave):
+    return leave.date_from <= shift.date_start and leave.date_to >= shift.date_end
+
+
+class HRHolidays(models.Model):
 
     _inherit = 'hr.holidays'
 
     @api.multi
-    def holidays_validate(self):
+    def action_validate(self):
 
-        res = super(hr_holidays, self).holidays_validate()
+        res = super(HRHolidays, self).action_validate()
 
-        unlink_ids = []
         det_obj = self.env['hr.schedule.detail']
         for leave in self:
+
             if leave.type != 'remove':
                 continue
 
-            det_ids = det_obj.search([(
-                'schedule_id.employee_id', '=', leave.employee_id.id),
-                ('date_start', '<=', leave.date_to),
-                ('date_end', '>=', leave.date_from)],
-                order='date_start')
+            scheduled_shifts = det_obj.search(
+                [('employee_id', '=', leave.employee_id.id),
+                 ('date_start', '<=', leave.date_to),
+                 ('date_end', '>=', leave.date_from)],
+                order='date_start',
+            )
 
-            for detail in det_ids:
+            missed_shifts = scheduled_shifts.filtered(
+                lambda shift: is_shift_missed(shift, leave))
 
-                # Remove schedule details completely covered by leave
-                if (leave.date_from <= detail.date_start
-                        and leave.date_to >= detail.date_end
-                        and detail.id not in unlink_ids):
-                    unlink_ids.append(detail.id)
+            missed_shifts.unlink()
 
-                # Partial day on first day of leave
-                elif detail.date_start < leave.date_from <= detail.date_end:
-                    dtLv = datetime.strptime(leave.date_from, OE_DTFORMAT)
-                    if leave.date_from == detail.date_end:
-                        if detail.id not in unlink_ids:
-                            unlink_ids.append(detail.id)
-                        else:
-                            dtEnd = dtLv + timedelta(seconds=-1)
-                            detail.write({
-                                'date_end': dtEnd.strftime(OE_DTFORMAT)
-                            })
+            for shift in scheduled_shifts - missed_shifts:
+                # Change the shifts to end when the leave starts
+                if shift.date_start < leave.date_from < shift.date_end:
+                    shift.write({
+                        'date_end': leave.date_from
+                    })
 
-                # Partial day on last day of leave
-                elif detail.date_end > leave.date_to >= detail.date_start:
-                    dtLv = datetime.strptime(leave.date_to, OE_DTFORMAT)
-                    if leave.date_to != detail.date_start:
-                        dtStart = dtLv + timedelta(seconds=+1)
-                        detail.write(
-                            {'date_start': dtStart.strftime(OE_DTFORMAT)})
-
-        det_obj.browse(unlink_ids).unlink()
-
+                # Change the shifts to start when the leave eands
+                elif shift.date_end > leave.date_to >= shift.date_start:
+                    shift.write({
+                        'date_start': leave.date_to
+                    })
         return res
 
     @api.multi
-    def holidays_refuse(self):
+    def action_refuse(self):
 
-        res = super(hr_holidays, self).holidays_refuse()
+        res = super(HRHolidays, self).action_refuse()
 
         sched_obj = self.env['hr.schedule']
         for leave in self:
             if leave.type != 'remove':
                 continue
 
-            dLvFrom = datetime.strptime(leave.date_from, OE_DTFORMAT).date()
-            dLvTo = datetime.strptime(leave.date_to, OE_DTFORMAT).date()
-            sched_ids = sched_obj.search([('employee_id', '=', leave.employee_id.id),
-                                          ('date_start', '<=', dLvTo.strftime(
-                                              OE_DFORMAT)),
-                                          ('date_end', '>=', dLvFrom.strftime(OE_DFORMAT))])
+            datetime_leave_from = fields.Datetime.fromString(
+                leave.date_from).date()
+            datetime_leave_to = fields.Datetime.fromString(
+                leave.date_to).date()
+            affected_schedules = sched_obj.search([
+                ('employee_id', '=', leave.employee_id.id),
+                ('date_start', '<=', fields.Date.to_string(datetime_leave_to)),
+                ('date_end', '>=', fields.Date.to_string(datetime_leave_from))
+            ])
 
             # Re-create affected schedules from scratch
-            sched_ids.delete_details()
-            sched_ids.create_details()
+            affected_schedules.delete_details()
+            affected_schedules.create_details()
 
         return res

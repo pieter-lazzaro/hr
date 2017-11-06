@@ -228,7 +228,7 @@ class hr_schedule_alert(models.Model):
                       ('check_out', '>=', strToday),
                       ('check_in', '<', strNextDay),
                       ],
-            order='name')
+            order='check_in')
         
         # Run the schedule and attendance records against each active rule, and
         # create alerts for each result returned.

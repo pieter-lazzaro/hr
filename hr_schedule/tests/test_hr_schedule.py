@@ -18,8 +18,6 @@
 #
 ##############################################################################
 
-
-
 from datetime import date, datetime
 from dateutil.relativedelta import relativedelta
 import pytz

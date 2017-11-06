@@ -17,27 +17,27 @@
 #    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 #
-from datetime import datetime, timedelta
 
 from odoo import models, fields
 
 
-class hr_schedule_template(models.Model):
+class HRScheduleTemplate(models.Model):
 
     _name = 'hr.schedule.template'
     _description = 'Employee Working Schedule Template'
 
     name = fields.Char(
-        "Name",
         size=64,
         required=True,
     )
+
     company_id = fields.Many2one(
         'res.company',
         'Company',
         required=False,
         default=lambda self: self.env.user.company_id.id
     )
+
     worktime_ids = fields.One2many(
         'hr.schedule.template.worktime',
         'template_id',
@@ -49,13 +49,14 @@ class hr_schedule_template(models.Model):
     )
 
     def view_calendar(self):
+        ''' Returns an action to view the schedule template in a calendar '''
         self.ensure_one()
         return {
             'type': 'ir.actions.act_window',
             'res_model': 'hr.schedule.template.worktime',
             'views': [(False, 'calendar')],
             'domain': [('template_id', '=', self.id)],
-            'target':'new',
+            'target':  'new',
             'nodestroy': True,
             'context': self.env.context
         }
@@ -92,7 +93,7 @@ class hr_schedule_template(models.Model):
     def get_hours_by_weekday(self, day_no):
         """
         Return the number working hours in the template for day_no.
-        For day_no 0 is Monday. All shifts starting on day_no will 
+        For day_no 0 is Monday. All shifts starting on day_no will
         be included.
         """
         self.ensure_one()

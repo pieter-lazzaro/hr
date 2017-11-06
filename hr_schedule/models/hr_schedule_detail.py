@@ -19,7 +19,7 @@
 #
 
 import time
-from datetime import timedelta
+from datetime import timedelta, datetime
 from dateutil.relativedelta import relativedelta
 from pytz import timezone, utc
 
@@ -38,21 +38,25 @@ class schedule_detail(models.Model):
     @api.depends('date_start')
     def _day_compute(self):
         for obj in self:
-            obj.day = fields.Date.from_string(obj.date_start)
+            day = self._get_day(obj.date_start)
+            obj.day = fields.Date.to_string(day)
+    
+    def _get_day(self, date_and_time):
+        
+        if isinstance(date_and_time, str):
+            date_and_time = fields.Datetime.from_string(date_and_time)
+        
+        datetime_as_utc = utc.localize(date_and_time)
+        user_tz = timezone(self.env.user.tz)
+           
+        return datetime_as_utc.astimezone(user_tz).date()
+
 
     @api.depends('schedule_id')
     def _compute_employee_id(self):
         for record in self:
             record.employee_id = record.schedule_id.employee_id
             record.department_id = record.schedule_id.department_id
-
-    def _get_ids_from_sched(self):
-        res = []
-        for sched in self.pool.get('hr.schedule').browse(
-                cr, uid, ids, context=context):
-            for detail in sched.detail_ids:
-                res.append(detail.id)
-        return res
 
     name = fields.Char(
         "Name",
@@ -75,7 +79,6 @@ class schedule_detail(models.Model):
         required=True,
     )
     day = fields.Date(
-        'Day',
         required=True,
         index=1,
         compute='_day_compute',
@@ -88,20 +91,18 @@ class schedule_detail(models.Model):
     )
     department_id = fields.Many2one(
         'hr.department', compute='_compute_employee_id', string='Department', store=True)
-    employee_id = fields.Many2one(
-        'hr.employee', string='Employee', store=True)
+    employee_id = fields.Many2one('hr.employee', string='Employee')
 
     alert_ids = fields.One2many(
         'hr.schedule.alert', 'sched_detail_id', 'Alerts', readonly=True,)
-    state = fields.Selection([
-        ('draft', 'Draft'),
-        ('validate', 'Confirmed'),
-        ('locked', 'Locked'),
-        ('unlocked', 'Unlocked'),
-    ],
-    required=True,
-    readonly=True,
-    default='draft')
+    state = fields.Selection([('draft', 'Draft'),
+                              ('validate', 'Confirmed'),
+                              ('locked', 'Locked'),
+                              ('unlocked', 'Unlocked'),
+                              ],
+                             required=True,
+                             readonly=True,
+                             default='draft')
 
     _order = 'schedule_id, date_start, dayofweek'
 
@@ -258,23 +259,12 @@ WHERE (date_start <= %s and %s <= date_end)
     def create(self, vals):
 
         if 'day' not in vals and 'date_start' in vals:
-            # TODO - Someone affected by DST should fix this
-            #
-            user_tz = timezone(self.env.user.tz)
-            dtStart = fields.Datetime.from_string(vals['date_start'])
-            locldtStart = user_tz.localize(dtStart, is_dst=False)
-            utcdtStart = locldtStart.astimezone(utc)
-            dDay = utcdtStart.astimezone(user_tz).date()
-            vals.update({'day': dDay})
+            day = self._get_day(vals['date_start'])
+            vals.update({'day': day})
 
         res = super(schedule_detail, self).create(vals)
 
-        attendances = [
-            (
-                res.schedule_id.employee_id.id, fields.Date.context_today(
-                    self),
-            ),
-        ]
+        attendances = [(res.schedule_id.employee_id.id, fields.Date.context_today(self))]
         self._recompute_alerts(attendances)
 
         return res
