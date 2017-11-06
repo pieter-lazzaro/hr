@@ -165,3 +165,15 @@ class test_hr_schedule_working_times(common.TransactionCase):
         })
 
         self.assertEqual(shift.template_id.id, template.id)
+
+    def test_defalt_get(self):
+        """ Test default get """
+
+        template = self.template_model.create({
+            'name': 'test template'
+        })
+
+        shift = self.worktime_model.with_context(
+            default_date_start=self._datetimestamp_as_utc(2017, 11, 6, 9, 0),
+            default_date_end=self._datetimestamp_as_utc(2017, 11, 6, 12, 30),
+        ).default_get(['hour_from', 'hour_to', 'week', 'name'])
