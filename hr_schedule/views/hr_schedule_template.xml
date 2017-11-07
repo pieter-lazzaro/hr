@@ -40,13 +40,7 @@
             <field name="name">hr.schedule.template.worktime.calendar</field>
             <field name="model">hr.schedule.template.worktime</field>
             <field name="arch" type="xml">
-                <calendar 
-                    mode="week" 
-                    color="template_id" 
-                    date_start="date_start" 
-                    date_stop="date_end" 
-                    string="Schedule Template"
-                    event_open_popup="true">
+                <calendar mode="week" color="template_id" date_start="date_start" date_stop="date_end" string="Schedule Template" event_open_popup="true">
                     <field name="name"/>
                 </calendar>
             </field>
@@ -74,7 +68,7 @@
                         <field name="week" />
                         <label for="hour_from" string="Hours"/>
                         <div>
-                            <field name="hour_from" widget="float_time" class="oe_inline"/> -                                                                                                                 
+                            <field name="hour_from" widget="float_time" class="oe_inline"/> -                                                                                                                                             
                             <field name="hour_to" widget="float_time" class="oe_inline"/>
                         </div>
                     </group>

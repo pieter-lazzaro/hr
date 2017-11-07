@@ -27,8 +27,8 @@ from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as OE_DTFORMAT
 from odoo.tools.translate import _
 
 
-class hr_schedule_alert(models.Model):
-
+class HrScheduleAlert(models.Model):
+    
     _name = 'hr.schedule.alert'
     _description = 'Attendance Exception'
     _inherit = ['mail.thread', 'resource.calendar']
@@ -90,13 +90,6 @@ class hr_schedule_alert(models.Model):
         default='unresolved'
     )
 
-    def _rec_message(self):
-        return _('Duplicate Record!')
-
-    _sql_constraints = [
-        ('all_unique', 'UNIQUE(punch_id,sched_detail_id,name,rule_id)',
-         _rec_message),
-    ]
     _track = {
         'state': {
             'hr_schedule.mt_alert_resolved': (
@@ -198,8 +191,9 @@ class hr_schedule_alert(models.Model):
                             'sched_detail_id': detail_id,
                         })
 
-    def compute_alerts_by_employee(self, employee_id, strDay):
-        """Compute alerts for employee on specified day."""
+    @api.model
+    def compute_alerts_by_employee(self, employee_id, day):
+        """ Compute alerts for employee on specified day."""
 
         detail_obj = self.env['hr.schedule.detail']
         atnd_obj = self.env['hr.attendance']
@@ -208,13 +202,11 @@ class hr_schedule_alert(models.Model):
         # TODO - Someone who cares about DST should fix ths
         #
         user_tz = self.env.user.tz
-        dt = datetime.strptime(strDay + ' 00:00:00', '%Y-%m-%d %H:%M:%S')
-        lcldt = timezone(user_tz).localize(dt, is_dst=False)
-        utcdt = lcldt.astimezone(utc)
-        utcdtNextDay = utcdt + relativedelta(days=+1)
-        strToday = utcdt.strftime('%Y-%m-%d %H:%M:%S')
-        strNextDay = utcdtNextDay.strftime('%Y-%m-%d %H:%M:%S')
-
+        date_start = fields.Datetime.from_string(day)
+        date_start = timezone(user_tz).localize(date_start)
+        date_start = date_start.astimezone(utc)
+        date_end = date_start + relativedelta(days=+1)
+        
         # Get schedule and attendance records for the employee for the day
         #
         sched_detail_ids = detail_obj.search([('schedule_id.employee_id', '=', employee_id),

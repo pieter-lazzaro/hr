@@ -64,17 +64,17 @@ class hr_attendance(models.Model):
 
         # Remove all alerts for the employee(s) for the day and recompute.
         #
-        for ee_id, strDay in attendances:
+        for employee_id, day in attendances:
 
             # Today's records will be checked tomorrow. Future records can't
             # generate alerts.
-            if strDay >= fields.Date.context_today(self):
+            if day >= fields.Date.context_today(self):
                 continue
 
             # TODO - Someone who cares about DST should fix this
             #
             user_tz = self.env.user.tz
-            dt = datetime.strptime(strDay + ' 00:00:00', '%Y-%m-%d %H:%M:%S')
+            dt = datetime.strptime(day + ' 00:00:00', '%Y-%m-%d %H:%M:%S')
             lcldt = timezone(user_tz).localize(dt, is_dst=False)
             utcdt = lcldt.astimezone(utc)
             utcdtNextDay = utcdt + relativedelta(days=+1)
@@ -82,13 +82,13 @@ class hr_attendance(models.Model):
             strNextDay = utcdtNextDay.strftime('%Y-%m-%d %H:%M:%S')
 
             alert_ids = alert_obj.search([
-                ('employee_id', '=', ee_id),
+                ('employee_id', '=', employee_id),
                 '&',
                 ('name', '>=', strDayStart),
                 ('name', '<', strNextDay)
             ])
             alert_ids.unlink()
-            alert_obj.compute_alerts_by_employee(ee_id, strDay)
+            alert_obj.compute_alerts_by_employee(employee_id, day)
 
     @api.model
     def create(self, vals):
