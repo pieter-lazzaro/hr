@@ -1,11 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
-<openerp>
-    <data>
-        
+<odoo>
         <record id="alert_rule_missing_punches" model="hr.schedule.alert.rule">
             <field name="name">Missing Punches</field>
             <field name="code">MISSPUNCH</field>
             <field name="severity">critical</field>
+            <field name="active">True</field>
         </record>
         
         <record id="alert_rule_unscheduled_attendance" model="hr.schedule.alert.rule">
@@ -13,6 +12,7 @@
             <field name="code">UNSCHEDATT</field>
             <field name="severity">medium</field>
             <field name="window">240</field>
+            <field name="active">True</field>
         </record>
         
         <record id="alert_rule_awol" model="hr.schedule.alert.rule">
@@ -20,6 +20,7 @@
             <field name="code">MISSATT</field>
             <field name="severity">medium</field>
             <field name="window">240</field>
+            <field name="active">True</field>
         </record>
         
         <record id="alert_rule_overtime" model="hr.schedule.alert.rule">
@@ -34,6 +35,7 @@
             <field name="severity">low</field>
             <field name="grace_period">10</field>
             <field name="window">120</field>
+            <field name="active">True</field>
         </record>
         
         <record id="alert_rule_tardy" model="hr.schedule.alert.rule">
@@ -42,6 +44,7 @@
             <field name="severity">medium</field>
             <field name="grace_period">10</field>
             <field name="window">120</field>
+            <field name="active">True</field>
         </record>
         
         <record id="alert_rule_lvearly" model="hr.schedule.alert.rule">
@@ -50,6 +53,7 @@
             <field name="severity">medium</field>
             <field name="grace_period">10</field>
             <field name="window">120</field>
+            <field name="active">True</field>
         </record>
         
         <record id="alert_rule_outlate" model="hr.schedule.alert.rule">
@@ -58,13 +62,13 @@
             <field name="severity">low</field>
             <field name="grace_period">10</field>
             <field name="window">120</field>
+            <field name="active">True</field>
         </record>
         
         <record id="alert_rule_overlap" model="hr.schedule.alert.rule">
             <field name="name">Overlapping Attendance and Leave</field>
             <field name="code">OVRLP</field>
             <field name="severity">critical</field>
+            <field name="active">True</field>
         </record>
-        
-    </data>
-</openerp>
+</odoo>

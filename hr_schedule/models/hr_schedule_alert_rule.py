@@ -20,7 +20,6 @@
 
 from datetime import datetime
 
-from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as OE_DTFORMAT
 from odoo import models, fields, api
 
 
@@ -30,8 +29,7 @@ def within_window(date_scheduled, date_punch_in, window, grace_period=0):
         difference = abs((date_scheduled - date_punch_in).seconds) / 60
     else:
         difference = abs((date_punch_in - date_scheduled).seconds) / 60
-
-    return difference < window and difference > grace_period
+    return difference < window and difference >= grace_period
 
 
 class hr_schedule_alert_rule(models.Model):
@@ -39,27 +37,27 @@ class hr_schedule_alert_rule(models.Model):
     _name = 'hr.schedule.alert.rule'
     _description = 'Scheduling/Attendance Exception Rule'
 
-    name = fields.Char('Name', size=64, required=True)
-    code = fields.Char('Code', size=10, required=True)
+    name = fields.Char(size=64, required=True)
+    code = fields.Char(size=10, required=True)
     severity = fields.Selection((
         ('low', 'Low'),
         ('medium', 'Medium'),
         ('high', 'High'),
         ('critical', 'Critical'),
-    ), 'Severity', required=True, default='low')
+    ), required=True, default='low')
     grace_period = fields.Integer(
-        'Grace Period',
         help='In the case of early or late rules, the amount of time '
         'before/after the scheduled time that the rule will trigger.'
     )
     window = fields.Integer('Window of Activation')
-    active = fields.Boolean('Active', default=True)
+    active = fields.Boolean(default=True)
 
     @api.multi
     def check_unscheduled_attendance(self, sched_details, punches):
         self.ensure_one()
         res = {'schedule_details': [], 'punches': []}
         for punch in punches:
+            
             is_match = False
             date_punch_in = fields.Datetime.from_string(punch.check_in)
             for detail in sched_details:
@@ -68,7 +66,7 @@ class hr_schedule_alert_rule(models.Model):
                     is_match = True
                     break
             if not is_match:
-                res['punches'].append((punch.name_get(), punch.id))
+                res['punches'].append((punch.check_in, punch.id))
         return res
 
     @api.multi
@@ -100,17 +98,11 @@ class hr_schedule_alert_rule(models.Model):
             date_end = fields.Datetime.from_string(detail.date_end)
             sched_hours += float((date_end - date_start).seconds / 60) / 60.0
 
-        dtStart = False
         for punch in punches:
-            if punch.action == 'sign_in':
-                dtStart = datetime.strptime(
-                    punch.name_get(), '%Y-%m-%d %H:%M:%S')
-            elif punch.action == 'sign_out':
-                dtEnd = datetime.strptime(punch.name_get(), '%Y-%m-%d %H:%M:%S')
-                actual_hours += float(
-                    (dtEnd - dtStart).seconds / 60) / 60.0
-                if actual_hours > 8 >= sched_hours:
-                    res['punches'].append((punch.name_get(), punch.id))
+            if punch.check_out:
+                actual_hours += punch.worked_hours
+                if actual_hours > sched_hours:
+                    res['punches'].append((punch.check_in, punch.id))
         return res
 
     @api.multi
@@ -126,11 +118,11 @@ class hr_schedule_alert_rule(models.Model):
                 if date_punch_in > date_scheduled:
                     difference = (date_punch_in - date_scheduled).seconds / 60
                 
-                if self.window > difference  > self.grace_period:
+                if self.window > difference > self.grace_period:
                     is_match = True
                     break
             if is_match:
-                res['punches'].append((punch.name_get(), punch.id))
+                res['punches'].append((punch.check_in, punch.id))
         return res
 
     @api.multi
@@ -138,10 +130,16 @@ class hr_schedule_alert_rule(models.Model):
         self.ensure_one()
         res = {'schedule_details': [], 'punches': []}
         for detail in sched_details:
+            
             is_match = False
             date_scheduled = fields.Datetime.from_string(detail.date_end)
+            
             for punch in punches:
+                if not punch.check_out:
+                    continue
+                
                 date_punch_out = fields.Datetime.from_string(punch.check_out)
+                print(date_scheduled, date_punch_out)
                 difference = 0
                 if date_punch_out < date_scheduled:
                     difference = (date_scheduled - date_punch_out).seconds / 60
@@ -149,7 +147,7 @@ class hr_schedule_alert_rule(models.Model):
                     is_match = True
                     break
             if is_match:
-                res['punches'].append((punch.name_get(), punch.id))
+                res['punches'].append((punch.check_in, punch.id))
         return res
 
     @api.multi
@@ -168,7 +166,7 @@ class hr_schedule_alert_rule(models.Model):
                     is_match = True
                     break
             if is_match:
-                res['punches'].append((punch.name_get(), punch.id))
+                res['punches'].append((punch.check_in, punch.id))
         return res
 
     @api.multi
@@ -179,6 +177,9 @@ class hr_schedule_alert_rule(models.Model):
             is_match = False
             date_scheduled = fields.Datetime.from_string(detail.date_end)
             for punch in punches:
+                if not punch.check_out:
+                    continue
+
                 date_punch_out = fields.Datetime.from_string(punch.check_out)
                 difference = 0
                 if date_punch_out > date_scheduled:
@@ -187,7 +188,7 @@ class hr_schedule_alert_rule(models.Model):
                     is_match = True
                     break
             if is_match:
-                res['punches'].append((punch.name_get(), punch.id))
+                res['punches'].append((punch.check_in, punch.id))
         return res
 
     @api.multi
@@ -227,11 +228,11 @@ class hr_schedule_alert_rule(models.Model):
             return self.check_unscheduled_attendance(sched_details, punches)
         elif self.code == 'MISSATT':
             return self.check_missed_attendance(sched_details, punches)
-        elif self.code == 'UNSCHEDOT':
-            return self.check_unscheduled_ot(sched_details, punches)
+        # elif self.code == 'UNSCHEDOT':
+        #     return self.check_unscheduled_ot(sched_details, punches)
         elif self.code == 'TARDY':
             return self.check_tardy(sched_details, punches)
-        elif self.code == 'LVEARLY':
+        elif self.code == 'OUTEARLY':
             return self.check_leave_early(sched_details, punches)
         elif self.code == 'INEARLY':
             return self.check_arrive_early(sched_details, punches)

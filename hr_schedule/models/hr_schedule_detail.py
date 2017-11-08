@@ -189,39 +189,11 @@ WHERE (date_start <= %s and %s <= date_end)
 
     @api.multi
     def _remove_direct_alerts(self):
-        """Remove alerts directly attached to the schedule detail and
-        return a unique list of tuples of employee id and schedule
-        detail date.
+        """Remove alerts directly attached to the schedule detail
         """
+        for shift in self:
+            shift.alert_ids.unlink()
 
-        alert_obj = self.env['hr.schedule.alert']
-
-        # Remove alerts directly attached to these schedule details
-        #
-        alert_ids = []
-        scheds = []
-        sched_keys = []
-        for sched_detail in self:
-
-            [alert_ids.append(alert.id) for alert in sched_detail.alert_ids]
-
-            # Hmm, creation of this record triggers a workflow action that
-            # tries to write to it. But it seems that computed fields aren't
-            # available at this stage. So, use a fallback and compute the day
-            # ourselves.
-            day = sched_detail.day
-            if not sched_detail.day:
-                day = time.strftime('%Y-%m-%d', time.strptime(
-                    sched_detail.date_start, '%Y-%m-%d %H:%M:%S'))
-            key = str(sched_detail.schedule_id.employee_id.id) + day
-            if key not in sched_keys:
-                scheds.append((sched_detail.schedule_id.employee_id.id, day))
-                sched_keys.append(key)
-
-        if len(alert_ids) > 0:
-            alert_obj.browse(alert_ids).unlink()
-
-        return scheds
 
     def _recompute_alerts(self, attendances):
         """Recompute alerts for each record in schedule detail."""
@@ -264,8 +236,7 @@ WHERE (date_start <= %s and %s <= date_end)
 
         res = super(schedule_detail, self).create(vals)
 
-        attendances = [(res.schedule_id.employee_id.id, fields.Date.context_today(self))]
-        self._recompute_alerts(attendances)
+        res.compute_alerts()
 
         return res
 
@@ -281,29 +252,17 @@ WHERE (date_start <= %s and %s <= date_end)
 
         # Remove all alerts for the employee(s) for the day and recompute.
         #
-        self._recompute_alerts(attendances)
+        # self.compute_alerts()
 
         return res
 
     def write(self, vals):
-
-        # Flag for checking wether we have to recompute alerts
-        trigger_alert = False
-        for k, v in vals.items():
-            if k in ['date_start', 'date_end']:
-                trigger_alert = True
-
-        if trigger_alert:
-            # Remove alerts directly attached to the attendances
-            #
-            attendances = self._remove_direct_alerts()
-
+        
         res = super(schedule_detail, self).write(vals)
 
-        if trigger_alert:
-            # Remove all alerts for the employee(s) for the day and recompute.
-            #
-            self._recompute_alerts(attendances)
+        if 'date_start' in vals or 'date_end' in vals:
+            self._remove_direct_alerts()
+            self.compute_alerts()
 
         return res
 
@@ -319,3 +278,10 @@ WHERE (date_start <= %s and %s <= date_end)
         for detail in self:
             detail.write({'state': 'unlocked'})
             detail.schedule_id.workflow_unlock()
+
+    @api.multi
+    def compute_alerts(self):
+        alert_obj = self.env['hr.schedule.alert']
+
+        for shift in self:
+            alert_obj.compute_alerts_for_shift(shift)

@@ -37,70 +37,12 @@ class hr_attendance(models.Model):
         readonly=True,
     )
 
-    @api.multi
-    def _remove_direct_alerts(self):
-        """Remove alerts directly attached to the attendance and return
-        a unique list of tuples of employee ids and attendance dates.
-        """
-
-        # Remove alerts directly attached to the attendances
-        #
-        attendances = []
-        attendance_keys = []
-        for attendance in self:
-            attendance.alert_ids.unlink()
-            key = str(attendance.employee_id.id) + attendance.day
-            if key not in attendance_keys:
-                attendances.append((attendance.employee_id.id, attendance.day))
-                attendance_keys.append(key)
-
-        return attendances
-
-    @api.model
-    def _recompute_alerts(self, attendances):
-        """Recompute alerts for each record in attendances."""
-
-        alert_obj = self.env['hr.schedule.alert']
-
-        # Remove all alerts for the employee(s) for the day and recompute.
-        #
-        for employee_id, day in attendances:
-
-            # Today's records will be checked tomorrow. Future records can't
-            # generate alerts.
-            if day >= fields.Date.context_today(self):
-                continue
-
-            # TODO - Someone who cares about DST should fix this
-            #
-            user_tz = self.env.user.tz
-            dt = datetime.strptime(day + ' 00:00:00', '%Y-%m-%d %H:%M:%S')
-            lcldt = timezone(user_tz).localize(dt, is_dst=False)
-            utcdt = lcldt.astimezone(utc)
-            utcdtNextDay = utcdt + relativedelta(days=+1)
-            strDayStart = utcdt.strftime('%Y-%m-%d %H:%M:%S')
-            strNextDay = utcdtNextDay.strftime('%Y-%m-%d %H:%M:%S')
-
-            alert_ids = alert_obj.search([
-                ('employee_id', '=', employee_id),
-                '&',
-                ('name', '>=', strDayStart),
-                ('name', '<', strNextDay)
-            ])
-            alert_ids.unlink()
-            alert_obj.compute_alerts_by_employee(employee_id, day)
-
     @api.model
     def create(self, vals):
 
         res = super(hr_attendance, self).create(vals)
 
-        attendances = [
-            (
-                res.employee_id.id, fields.Date.context_today(res)
-            )
-        ]
-        self._recompute_alerts(attendances)
+        res.compute_alerts()
 
         return res
 
@@ -109,35 +51,34 @@ class hr_attendance(models.Model):
 
         # Remove alerts directly attached to the attendances
         #
-        attendances = self._remove_direct_alerts()
+        self._remove_direct_alerts()
 
         res = super(hr_attendance, self).unlink()
-
-        # Remove all alerts for the employee(s) for the day and recompute.
-        #
-        self._recompute_alerts(attendances)
 
         return res
 
     @api.multi
     def write(self, vals):
 
-        # Flag for checking wether we have to recompute alerts
-        trigger_alert = False
-        for k, v in vals.items():
-            if k in ['name', 'action']:
-                trigger_alert = True
-
-        if trigger_alert:
-            # Remove alerts directly attached to the attendances
-            #
-            attendances = self._remove_direct_alerts()
-
         res = super(hr_attendance, self).write(vals)
 
-        if trigger_alert:
-            # Remove all alerts for the employee(s) for the day and recompute.
-            #
-            self._recompute_alerts(attendances)
+        if 'check_in' in vals or 'check_out' in vals:
+            self._remove_direct_alerts()
+            self.compute_alerts()
 
         return res
+
+    @api.multi
+    def _remove_direct_alerts(self):
+        """Remove alerts directly attached to the attendance.
+        """
+
+        for attendance in self:
+            attendance.alert_ids.unlink()
+
+    @api.multi
+    def compute_alerts(self):
+        alert_obj = self.env['hr.schedule.alert']
+
+        for attendance in self:
+            alert_obj.compute_alerts_for_attendance(attendance)
