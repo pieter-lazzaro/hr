@@ -11,11 +11,11 @@
                         <field name="department_ids" nolabel="1"/>
                     </group>
                     <newline/>
-                    <group>
+                    <footer>
                         <button name="view_schedules" type="object" string="View Schedules" class="oe_highlight"/>
                         <button name="do_validate" type="object" string="Validate All" icon="gtk-execute" class="oe_highlight"/>
                         <button special="cancel" string="Close" icon="gtk-cancel"/>
-                    </group>
+                    </footer>
                 </form>
             </field>
         </record>

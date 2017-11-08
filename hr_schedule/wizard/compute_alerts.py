@@ -46,29 +46,22 @@ class compute_alerts(models.TransientModel):
         'Employees',
     )
 
-
     def generate_alerts(self):
 
         alert_obj = self.env['hr.schedule.alert']
 
-        dStart = datetime.strptime(self.date_start, '%Y-%m-%d').date()
-        dEnd = datetime.strptime(self.date_end, '%Y-%m-%d').date()
-        dToday = datetime.strptime(fields.Date.context_today(self), '%Y-%m-%d').date()
-        if dToday < dEnd:
-            dEnd = dToday
+        date_start = fields.Datetime.from_string(self.date_start)
+        date_end = fields.Datetime.from_string(self.date_end)
 
-        dNext = dStart
         for employee_id in self.employee_ids:
-            while dNext <= dEnd:
-                alert_obj.compute_alerts_by_employee(employee_id, dNext.strftime('%Y-%m-%d'))
-                dNext += relativedelta(days=+1)
+            alert_obj.compute_alerts_by_employee(employee_id, date_start, date_end)
 
         return {
             'view_type': 'form',
             'view_mode': 'tree,form',
             'res_model': 'hr.schedule.alert',
             'domain': [
-                ('employee_id', 'in', self.employee_ids),
+                ('employee_id', 'in', self.employee_ids.ids),
                 '&',
                 ('name', '>=', self.date_start + ' 00:00:00'),
                 ('name', '<=', self.date_end + ' 23:59:59')

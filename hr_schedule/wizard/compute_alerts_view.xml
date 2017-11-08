@@ -16,10 +16,10 @@
                         <field name="employee_ids" nolabel="1"/>
                     </group>
                     <newline/>
-                    <group colspan="4" cols="4">
+                    <footer>
                         <button name="generate_alerts" type="object" string="Check" icon="gtk-execute" class="oe_highlight"/>
                         <button special="cancel" string="Close" icon="gtk-cancel"/>
-                    </group>
+                    </footer>
                 </form>
             </field>
         </record>
@@ -34,7 +34,7 @@
         </record>
         <menuitem id="menu_alerts_by_employee"
             action="action_alerts_by_employee"
-            parent="menu_hr_root_schedule"
+            parent="menu_hr_root_schedule_alerts"
             sequence="30"/>
             
     </data>

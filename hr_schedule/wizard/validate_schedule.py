@@ -48,7 +48,7 @@ class department_selection(models.TransientModel):
             'view_mode': 'tree,form',
             'res_model': 'hr.schedule',
             'domain': [
-                ('department_id', 'in', self.department_ids),
+                ('department_id', 'in', self.department_ids.ids),
                 ('state', 'in', ['draft']),
             ],
             'type': 'ir.actions.act_window',
@@ -61,7 +61,7 @@ class department_selection(models.TransientModel):
         self.ensure_one()
 
         sched_ids = self.env['hr.schedule'].search([
-                ('department_id', 'in', self.department_ids)
+                ('department_id', 'in', self.department_ids.ids)
             ])
         for sched_id in sched_ids:
             sched_id.signal_validate()
