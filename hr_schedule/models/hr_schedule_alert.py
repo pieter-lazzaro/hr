@@ -63,7 +63,7 @@ class HrScheduleAlert(models.Model):
     )
     sched_detail_id = fields.Many2one(
         'hr.schedule.detail',
-        'Schedule Detail',
+        'Shift',
         readonly=True,
     )
     employee_id = fields.Many2one(

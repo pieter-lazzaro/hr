@@ -1,0 +1,136 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <data>
+        <menuitem name="Alerts" id="menu_hr_root_schedule_alerts" parent="menu_time_attendance" groups="hr.group_hr_user" sequence="20"/>
+        <!-- Schedule/Attendance Scheduling Alerts -->
+        <record id="view_alert_filter" model="ir.ui.view">
+            <field name="name">hr.schedule.alert.filter</field>
+            <field name="model">hr.schedule.alert</field>
+            <field name="arch" type="xml">
+                <search string="Search Alerts">
+                    <field name="severity"/>
+                    <separator/>
+                    <filter icon="terp-check" domain="[('severity','=','high')]" string="High Severity"/>
+                    <filter icon="terp-camera_test" domain="[('severity','=','medium')]" string="Medium Severity"/>
+                    <filter icon="terp-camera_test" domain="[('severity','=','low')]" string="Low Severity"/>
+                    <separator/>
+                    <filter string="My Scheduling Alerts" icon="terp-personal" name="my_alerts" domain="[('employee_id.user_id','=', uid)]" help="My Alerts"/>
+                    <separator/>
+                    <filter string="My Department Scheduling Alerts" icon="terp-personal+" help="My Department Alerts" domain="[('department_id.manager_id','=',uid)]"/>
+                    <field name="employee_id"/>
+                    <field name="department_id"/>
+                    <field name="rule_id"/>
+                    <group expand="0" string="Group By...">
+                        <filter string="Department" icon="terp-personal+" domain="[]" context="{'group_by':'department_id','set_visible':True}"/>
+                        <filter name="group_rule" string="Rule" icon="terp-stock_symbol-selection" domain="[]" context="{'group_by':'rule_id'}"/>
+                        <filter name="group_employee" string="Employee" icon="terp-personal" domain="[]" context="{'group_by':'employee_id'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+        <record id="view_alert_tree" model="ir.ui.view">
+            <field name="name">hr.schedule.alert.tree</field>
+            <field name="model">hr.schedule.alert</field>
+            <field name="arch" type="xml">
+                <tree string="Scheduling Alerts" colors="red:severity == 'critical';orange:severity == 'high';blue:severity == 'medium';black:severity == 'low';">
+                    <field name="department_id"/>
+                    <field name="rule_id"/>
+                    <field name="employee_id"/>
+                    <field name="name"/>
+                    <field name="severity"/>
+                </tree>
+            </field>
+        </record>
+        <record id="view_alert_form" model="ir.ui.view">
+            <field name="name">hr.schedule.alert.form</field>
+            <field name="model">hr.schedule.alert</field>
+            <field name="arch" type="xml">
+                <form string="Exception" version="7.0">
+                    <header>
+                        <field name="state" widget="statusbar"/>
+                    </header>
+                    <sheet>
+                        <group>
+                            <field name="name"/>
+                            <field name="rule_id"/>
+                            <field name="employee_id"/>
+                            <field name="department_id"/>
+                            <field name="severity"/>
+                            <field name="punch_id"/>
+                            <field name="sched_detail_id"/>
+                        </group>
+                    </sheet>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
+                </form>
+            </field>
+        </record>
+        <record id="view_schedule_alert_calendar" model="ir.ui.view">
+            <field name="name">hr.schedule.alert.calendar</field>
+            <field name="model">hr.schedule.alert</field>
+            <field name="arch" type="xml">
+                <calendar color="rule_id" date_start="name" date_stop="name" string="Scheduling Alerts">
+                    <field name="employee_id"/>
+                </calendar>
+            </field>
+        </record>
+        <record id="open_hr_schedule_alert_view" model="ir.actions.act_window">
+            <field name="name">Scheduling Alerts</field>
+            <field name="res_model">hr.schedule.alert</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form,calendar</field>
+            <field name="view_id" eval="view_alert_tree"/>
+            <field name="context">{'search_default_group_department': 1}</field>
+            <field name="search_view_id" ref="view_alert_filter"/>
+        </record>
+        <menuitem action="open_hr_schedule_alert_view" id="menu_schedule_alert_view" parent="menu_hr_root_schedule_alerts" sequence="20"/>
+        <!-- Alert Rules -->
+        <record id="view_alert_rule_tree" model="ir.ui.view">
+            <field name="name">hr.schedule.alert.rule.tree</field>
+            <field name="model">hr.schedule.alert.rule</field>
+            <field name="arch" type="xml">
+                <tree string="Scheduling Alerts Rules">
+                    <field name="name"/>
+                    <field name="code"/>
+                    <field name="severity"/>
+                    <field name="grace_period"/>
+                    <field name="window"/>
+                    <field name="active"/>
+                </tree>
+            </field>
+        </record>
+        <record id="view_alert_rule_form" model="ir.ui.view">
+            <field name="name">hr.schedule.alert.rule.form</field>
+            <field name="model">hr.schedule.alert.rule</field>
+            <field name="arch" type="xml">
+                <form string="Exception Rule" version="7.0">
+                    <sheet>
+                        <group>
+                            <group>
+                                <field name="name"/>
+                                <field name="severity"/>
+                            </group>
+                            <group>
+                                <field name="active"/>
+                            </group>
+                        </group>
+                        <group>
+                            <field name="code"/>
+                            <field name="grace_period"/>
+                            <field name="window"/>
+                        </group>
+                    </sheet>
+                </form>
+            </field>
+        </record>
+        <record id="open_hr_schedule_alert_rule_view" model="ir.actions.act_window">
+            <field name="name">Exception Rules</field>
+            <field name="res_model">hr.schedule.alert.rule</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+        <menuitem action="open_hr_schedule_alert_rule_view" id="menu_schedule_alert_rule_view" parent="menu_hr_root_schedule_alerts" sequence="20"/>
+    </data>
+</odoo>

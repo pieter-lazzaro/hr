@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <data>
+        <!-- Change Request -->
+        <record id="view_request_tree" model="ir.ui.view">
+            <field name="name">hr.schedule.request.tree</field>
+            <field name="model">hr.schedule.request</field>
+            <field name="arch" type="xml">
+                <tree string="Change Requests">
+                    <field name="employee_id"/>
+                    <field name="date"/>
+                    <field name="type"/>
+                </tree>
+            </field>
+        </record>
+        <record id="view_request_form" model="ir.ui.view">
+            <field name="name">hr.schedule.request.form</field>
+            <field name="model">hr.schedule.request</field>
+            <field name="arch" type="xml">
+                <form string="Change Request" version="7.0">
+                    <header>
+                        <field name="state" widget="statusbar"/>
+                    </header>
+                    <field name="employee_id"/>
+                    <field name="date"/>
+                    <field name="type"/>
+                    <field name="message"/>
+                    <div class="oe_chatter">
+                        <field name="message_follower_ids" widget="mail_followers"/>
+                        <field name="message_ids" widget="mail_thread"/>
+                    </div>
+                </form>
+            </field>
+        </record>
+        <record id="open_hr_schedule_request_view" model="ir.actions.act_window">
+            <field name="name">Change Request</field>
+            <field name="res_model">hr.schedule.request</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form</field>
+        </record>
+        <menuitem action="open_hr_schedule_request_view" id="menu_schedule_request_view" parent="menu_hr_root_schedule" sequence="20"/>
+    </data>
+</odoo>

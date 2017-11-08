@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<odoo>
+    <data>
+        <!-- Schedule Detail -->
+        <record id="view_hr_schedule_detail_filter" model="ir.ui.view">
+            <field name="name">hr.schedule.detail.filter</field>
+            <field name="model">hr.schedule.detail</field>
+            <field name="arch" type="xml">
+                <search string="Shift Search">
+                    <field name="name" string="Schedule"/>
+                    <field name="date_start"/>
+                    <filter icon="terp-go-today" string="Today" name="today" domain="[('date_start','&gt;=',current_date),('date_start','&lt;=',current_date)]" />
+                    <separator/>
+                    <filter icon="terp-stock_align_left_24" string="My Schedule" domain="[('employee_id.user_id.id', '=', uid)]" />
+                    <field name="employee_id"/>
+                    <field name="department_id"/>
+                    <group expand="0" string="Group By...">
+                        <filter name="department" string="Department" icon="terp-personal" domain="[]" context="{'group_by':'department_id'}"/>
+                        <filter name="employee" string="Employee" icon="terp-personal" domain="[]" context="{'group_by':'employee_id'}"/>
+                        <filter string="Day" icon="terp-go-today" domain="[]" context="{'group_by':'day'}"/>
+                    </group>
+                </search>
+            </field>
+        </record>
+        <record id="view_schedule_detail_tree" model="ir.ui.view">
+            <field name="name">hr.schedule.detail.tree</field>
+            <field name="model">hr.schedule.detail</field>
+            <field name="arch" type="xml">
+                <tree string="Schedule Detail">
+                    <field name="name"/>
+                    <field name="department_id"/>
+                    <field name="day"/>
+                    <field name="dayofweek"/>
+                    <field name="date_start"/>
+                    <field name="date_end"/>
+                    <field name="state"/>
+                    <field name="employee_id" invisible="1"/>
+                </tree>
+            </field>
+        </record>
+        <record id="view_schedule_detail_form" model="ir.ui.view">
+            <field name="name">hr.schedule.detail.form</field>
+            <field name="model">hr.schedule.detail</field>
+            <field name="arch" type="xml">
+                <form string="Schedule Detail" version="7.0">
+                    <header>
+                        <button name="workflow_validate" type="object" states="draft" class="oe_highlight" string="Validate"/>
+                        <field name="state" widget="statusbar"/>
+                    </header>
+                    <group>
+                        <field name="schedule_id"/>
+                        <field name="name"/>
+                        <field name="dayofweek"/>
+                        <field name="date_start"/>
+                        <field name="date_end"/>
+                    </group>
+                    <group string="Alerts" colspan="4" cols="5">
+                        <field name="alert_ids" nolabel="1"/>
+                    </group>
+                </form>
+            </field>
+        </record>
+        <record id="view_schedule_detail_calendar" model="ir.ui.view">
+            <field name="name">hr.schedule.detail.calendar</field>
+            <field name="model">hr.schedule.detail</field>
+            <field name="arch" type="xml">
+                <calendar color="schedule_id" date_start="date_start" date_stop="date_end" string="Employee Schedule" event_open_popup="True">
+                    <field name="name"/>
+                </calendar>
+            </field>
+        </record>
+        <record id="open_schedule_detail_view" model="ir.actions.act_window">
+            <field name="name">Employee Schedule Details</field>
+            <field name="res_model">hr.schedule.detail</field>
+            <field name="view_type">form</field>
+            <field name="view_mode">tree,form,calendar</field>
+            <field name="search_view_id" ref="view_hr_schedule_detail_filter" />
+        </record>
+        <menuitem action="open_schedule_detail_view" id="menu_schedule_detail_view" parent="menu_hr_root_schedule" sequence="15"/>
+    </data>
+</odoo>
