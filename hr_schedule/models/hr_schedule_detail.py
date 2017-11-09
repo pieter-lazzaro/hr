@@ -40,17 +40,16 @@ class schedule_detail(models.Model):
         for obj in self:
             day = self._get_day(obj.date_start)
             obj.day = fields.Date.to_string(day)
-    
+
     def _get_day(self, date_and_time):
-        
+
         if isinstance(date_and_time, str):
             date_and_time = fields.Datetime.from_string(date_and_time)
-        
+
         datetime_as_utc = utc.localize(date_and_time)
         user_tz = timezone(self.env.user.tz)
-           
-        return datetime_as_utc.astimezone(user_tz).date()
 
+        return datetime_as_utc.astimezone(user_tz).date()
 
     @api.depends('schedule_id')
     def _compute_employee_id(self):
@@ -78,12 +77,7 @@ class schedule_detail(models.Model):
         'End Date and Time',
         required=True,
     )
-    day = fields.Date(
-        required=True,
-        index=1,
-        compute='_day_compute',
-        store=True
-    )
+
     schedule_id = fields.Many2one(
         'hr.schedule',
         'Schedule',
@@ -135,13 +129,16 @@ WHERE (date_start <= %s and %s <= date_end)
         times for the day
         """
 
+        user_tz = timezone(self.env.user.tz)
+
+        day = user_tz.localize(datetime(dt.year, dt.month, dt.day)).astimezone(utc)
+
         res = []
         detail_ids = self.search([
             ('schedule_id.employee_id.id', '=', employee_id),
-            ('day', '=', dt.strftime(
-                '%Y-%m-%d')),
-        ],
-            order='date_start',)
+            ('date_start', '>=', fields.Datetime.to_string(day)),
+            ('date_start', '<', fields.Datetime.to_string(day + relativedelta(days=1))),
+        ], order='date_start',)
         if len(detail_ids) > 0:
             for detail in detail_ids:
                 res.append((
@@ -194,49 +191,12 @@ WHERE (date_start <= %s and %s <= date_end)
         for shift in self:
             shift.alert_ids.unlink()
 
-
-    def _recompute_alerts(self, attendances):
-        """Recompute alerts for each record in schedule detail."""
-
-        alert_obj = self.env['hr.schedule.alert']
-
-        # Remove all alerts for the employee(s) for the day and recompute.
-        #
-        for ee_id, strDay in attendances:
-
-            # Today's records will be checked tomorrow. Future records can't
-            # generate alerts.
-            if strDay >= fields.Date.context_today(self):
-                continue
-
-            # TODO - Someone who cares about DST should fix this
-            #
-            user_tz = self.env.user.tz
-            dt = fields.Datetime.from_string(strDay)
-            lcldt = timezone(user_tz).localize(dt, is_dst=False)
-            utcdt = lcldt.astimezone(utc)
-            utcdtNextDay = utcdt + relativedelta(days=+1)
-            strDayStart = fields.Datetime.to_string(utcdt)
-            strNextDay = fields.Datetime.to_string(utcdtNextDay)
-
-            alert_ids = alert_obj.search([
-                ('employee_id', '=', ee_id),
-                '&',
-                ('name', '>=', strDayStart),
-                ('name', '<', strNextDay)
-            ])
-            alert_ids.unlink()
-            alert_obj.compute_alerts_by_employee(ee_id, strDay)
-
+    @api.multi
     def create(self, vals):
-
-        if 'day' not in vals and 'date_start' in vals:
-            day = self._get_day(vals['date_start'])
-            vals.update({'day': day})
 
         res = super(schedule_detail, self).create(vals)
 
-        res.compute_alerts()
+        # res.compute_alerts()
 
         return res
 
@@ -257,12 +217,12 @@ WHERE (date_start <= %s and %s <= date_end)
         return res
 
     def write(self, vals):
-        
+
         res = super(schedule_detail, self).write(vals)
 
-        if 'date_start' in vals or 'date_end' in vals:
-            self._remove_direct_alerts()
-            self.compute_alerts()
+        # if 'date_start' in vals or 'date_end' in vals:
+        #     self._remove_direct_alerts()
+        #     self.compute_alerts()
 
         return res
 

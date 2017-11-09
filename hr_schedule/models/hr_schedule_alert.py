@@ -25,6 +25,7 @@ from pytz import timezone, utc
 from odoo import models, fields, api
 from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as OE_DTFORMAT
 from odoo.tools.translate import _
+from odoo.tools.profiler import profile
 
 
 class HrScheduleAlert(models.Model):
@@ -278,6 +279,7 @@ class HrScheduleAlert(models.Model):
         self.compute_alerts([shift], attendances)
 
     @api.model
+    @profile
     def compute_alerts_by_employee(self, employee, date_start, date_end=None):
         """ Compute alerts for employee on specified range."""
 

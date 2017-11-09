@@ -25,43 +25,15 @@ import pytz
 from odoo.tests import common
 from odoo import fields
 from odoo.exceptions import UserError
+from .common import HrScheduleTestCase
 
-
-class test_hr_schedule(common.TransactionCase):
+class test_hr_schedule(HrScheduleTestCase):
     
     def setUp(self):
         super(test_hr_schedule, self).setUp()
 
-        self.schedule_model = self.env['hr.schedule']
-        self.template_model = self.env['hr.schedule.template']
-        self.detail_model = self.env['hr.schedule.detail']
-        self.worktime_model = self.env['hr.schedule.template.worktime']
-        self.contract_model = self.env['hr.contract']
-
-        self.employee = self.env['hr.employee'].create({'name': 'test employee'})
-        self.contract = self.contract_model.create({
-            'name': 'test',
-            'employee_id': self.employee.id,
-            'wage': 0,
-        })
         self.shifts = 0
-
-    def _datetime(self, year, month, day, hour=0, minute=0, tzinfo=None):
-        if tzinfo is None:
-            tzinfo = pytz.timezone(self.env.user.tz)
-        
-        d = datetime(year, month, day, hour, minute)
-        return tzinfo.localize(d)
-
-    def _convert_to_utc(self, timestamp):
-        return pytz.utc.localize(fields.Datetime.from_string(timestamp))
-
-    def _convert_to_user_tz(self, timestamp):
-        datetime_utc = self._convert_to_utc(timestamp)
-        user_tz = pytz.timezone(self.env.user.tz)
-        datetime_user_tz = datetime_utc.astimezone(user_tz)
-        return datetime_user_tz
-
+    
     def _create_shift(self, template, week, day, hour_from, hour_to):
         self.shifts += 1
         return self.worktime_model.create({
@@ -103,23 +75,22 @@ class test_hr_schedule(common.TransactionCase):
             'date_start': fields.Date.to_string(start_of_week),
             'date_end': fields.Date.to_string(end_of_week)
         })
-        user_tz = pytz.timezone(self.env.user.tz)
         expected_shifts = [
-            (self._datetime(2017, 10, 30, 9, tzinfo=user_tz), self._datetime(2017, 10, 30, 12, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 10, 30, 13, tzinfo=user_tz), self._datetime(2017, 10, 30, 17, 0, tzinfo=user_tz)),
-            (self._datetime(2017, 10, 31, 9, tzinfo=user_tz), self._datetime(2017, 10, 31, 12, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 10, 31, 13, tzinfo=user_tz), self._datetime(2017, 10, 31, 17, 0, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 1, 9, tzinfo=user_tz), self._datetime(2017, 11, 1, 12, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 1, 13, tzinfo=user_tz), self._datetime(2017, 11, 1, 17, 0, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 2, 9, tzinfo=user_tz), self._datetime(2017, 11, 2, 12, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 2, 13, tzinfo=user_tz), self._datetime(2017, 11, 2, 17, 0, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 3, 9, tzinfo=user_tz), self._datetime(2017, 11, 3, 12, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 3, 13, tzinfo=user_tz), self._datetime(2017, 11, 3, 17, 0, tzinfo=user_tz)),
+            (self._datetime_utc(2017, 10, 30, 9), self._datetime_utc(2017, 10, 30, 12, 30)),
+            (self._datetime_utc(2017, 10, 30, 13), self._datetime_utc(2017, 10, 30, 17, 0)),
+            (self._datetime_utc(2017, 10, 31, 9), self._datetime_utc(2017, 10, 31, 12, 30)),
+            (self._datetime_utc(2017, 10, 31, 13), self._datetime_utc(2017, 10, 31, 17, 0)),
+            (self._datetime_utc(2017, 11, 1, 9), self._datetime_utc(2017, 11, 1, 12, 30)),
+            (self._datetime_utc(2017, 11, 1, 13), self._datetime_utc(2017, 11, 1, 17, 0)),
+            (self._datetime_utc(2017, 11, 2, 9), self._datetime_utc(2017, 11, 2, 12, 30)),
+            (self._datetime_utc(2017, 11, 2, 13), self._datetime_utc(2017, 11, 2, 17, 0)),
+            (self._datetime_utc(2017, 11, 3, 9), self._datetime_utc(2017, 11, 3, 12, 30)),
+            (self._datetime_utc(2017, 11, 3, 13), self._datetime_utc(2017, 11, 3, 17, 0)),
         ]
 
         for i, shift in enumerate(schedule.detail_ids):
-            self.assertEqual(self._convert_to_user_tz(shift.date_start), expected_shifts[i][0])
-            self.assertEqual(self._convert_to_user_tz(shift.date_end), expected_shifts[i][1])
+            self.assertEqual(shift.date_start, fields.Datetime.to_string(expected_shifts[i][0]))
+            self.assertEqual(shift.date_end, fields.Datetime.to_string(expected_shifts[i][1]))
 
     def test_generate_multiple_week_schedule(self):
         """ Test a multiple week schedule template can generate a schedule """
@@ -152,23 +123,22 @@ class test_hr_schedule(common.TransactionCase):
             'date_end': fields.Date.to_string(end_of_week)
         })
 
-        user_tz = pytz.timezone(self.env.user.tz)
         expected_shifts = [
-            (self._datetime(2017, 10, 30, 9, tzinfo=user_tz), self._datetime(2017, 10, 30, 12, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 10, 30, 13, tzinfo=user_tz), self._datetime(2017, 10, 30, 17, 0, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 1, 9, tzinfo=user_tz), self._datetime(2017, 11, 1, 12, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 1, 13, tzinfo=user_tz), self._datetime(2017, 11, 1, 17, 0, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 3, 9, tzinfo=user_tz), self._datetime(2017, 11, 3, 12, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 3, 13, tzinfo=user_tz), self._datetime(2017, 11, 3, 17, 0, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 7, 9, tzinfo=user_tz), self._datetime(2017, 11, 7, 12, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 7, 13, tzinfo=user_tz), self._datetime(2017, 11, 7, 17, 0, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 9, 9, tzinfo=user_tz), self._datetime(2017, 11, 9, 12, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 9, 13, tzinfo=user_tz), self._datetime(2017, 11, 9, 17, 0, tzinfo=user_tz)),
+            (self._datetime_utc(2017, 10, 30, 9), self._datetime_utc(2017, 10, 30, 12, 30)),
+            (self._datetime_utc(2017, 10, 30, 13), self._datetime_utc(2017, 10, 30, 17, 0)),
+            (self._datetime_utc(2017, 11, 1, 9), self._datetime_utc(2017, 11, 1, 12, 30)),
+            (self._datetime_utc(2017, 11, 1, 13), self._datetime_utc(2017, 11, 1, 17, 0)),
+            (self._datetime_utc(2017, 11, 3, 9), self._datetime_utc(2017, 11, 3, 12, 30)),
+            (self._datetime_utc(2017, 11, 3, 13), self._datetime_utc(2017, 11, 3, 17, 0)),
+            (self._datetime_utc(2017, 11, 7, 9), self._datetime_utc(2017, 11, 7, 12, 30)),
+            (self._datetime_utc(2017, 11, 7, 13), self._datetime_utc(2017, 11, 7, 17, 0)),
+            (self._datetime_utc(2017, 11, 9, 9), self._datetime_utc(2017, 11, 9, 12, 30)),
+            (self._datetime_utc(2017, 11, 9, 13), self._datetime_utc(2017, 11, 9, 17, 0)),
         ]
 
         for i, shift in enumerate(schedule.detail_ids):
-            self.assertEqual(self._convert_to_user_tz(shift.date_start), expected_shifts[i][0])
-            self.assertEqual(self._convert_to_user_tz(shift.date_end), expected_shifts[i][1])
+            self.assertEqual(shift.date_start, fields.Datetime.to_string(expected_shifts[i][0]))
+            self.assertEqual(shift.date_end, fields.Datetime.to_string(expected_shifts[i][1]))
 
     def test_generate_partial_multiple_week_schedule(self):
         """ Test a only half a multiple week schedule template """
@@ -201,19 +171,18 @@ class test_hr_schedule(common.TransactionCase):
             'date_end': fields.Date.to_string(end_of_week)
         })
 
-        user_tz = pytz.timezone(self.env.user.tz)
         expected_shifts = [
-            (self._datetime(2017, 10, 30, 9, tzinfo=user_tz), self._datetime(2017, 10, 30, 12, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 10, 30, 13, tzinfo=user_tz), self._datetime(2017, 10, 30, 17, 0, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 1, 9, tzinfo=user_tz), self._datetime(2017, 11, 1, 12, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 1, 13, tzinfo=user_tz), self._datetime(2017, 11, 1, 17, 0, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 3, 9, tzinfo=user_tz), self._datetime(2017, 11, 3, 12, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 3, 13, tzinfo=user_tz), self._datetime(2017, 11, 3, 17, 0, tzinfo=user_tz)),
+            (self._datetime_utc(2017, 10, 30, 9), self._datetime_utc(2017, 10, 30, 12, 30)),
+            (self._datetime_utc(2017, 10, 30, 13), self._datetime_utc(2017, 10, 30, 17, 0)),
+            (self._datetime_utc(2017, 11, 1, 9), self._datetime_utc(2017, 11, 1, 12, 30)),
+            (self._datetime_utc(2017, 11, 1, 13), self._datetime_utc(2017, 11, 1, 17, 0)),
+            (self._datetime_utc(2017, 11, 3, 9), self._datetime_utc(2017, 11, 3, 12, 30)),
+            (self._datetime_utc(2017, 11, 3, 13), self._datetime_utc(2017, 11, 3, 17, 0)),
         ]
 
         for i, shift in enumerate(schedule.detail_ids):
-            self.assertEqual(self._convert_to_user_tz(shift.date_start), expected_shifts[i][0])
-            self.assertEqual(self._convert_to_user_tz(shift.date_end), expected_shifts[i][1])
+            self.assertEqual(shift.date_start, fields.Datetime.to_string(expected_shifts[i][0]))
+            self.assertEqual(shift.date_end, fields.Datetime.to_string(expected_shifts[i][1]))
 
     def test_generate_overnight_schedule(self):
         """ Test a only half a multiple week schedule template """
@@ -242,16 +211,15 @@ class test_hr_schedule(common.TransactionCase):
             'date_end': fields.Date.to_string(end_of_week)
         })
 
-        user_tz = pytz.timezone(self.env.user.tz)
         expected_shifts = [
-            (self._datetime(2017, 10, 30, 22, 0, tzinfo=user_tz), self._datetime(2017, 10, 31, 1, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 10, 31, 2, 0, tzinfo=user_tz), self._datetime(2017, 10, 31, 5, 0, tzinfo=user_tz)),
-            (self._datetime(2017, 10, 31, 22, 0, tzinfo=user_tz), self._datetime(2017, 11, 1, 1, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 1, 2, 0, tzinfo=user_tz), self._datetime(2017, 11, 1, 5, 0, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 1, 22, 0, tzinfo=user_tz), self._datetime(2017, 11, 2, 1, 30, tzinfo=user_tz)),
-            (self._datetime(2017, 11, 2, 2, 0, tzinfo=user_tz), self._datetime(2017, 11, 2, 5, 0, tzinfo=user_tz)),
+            (self._datetime_utc(2017, 10, 30, 22, 0), self._datetime_utc(2017, 10, 31, 1, 30)),
+            (self._datetime_utc(2017, 10, 31, 2, 0), self._datetime_utc(2017, 10, 31, 5, 0)),
+            (self._datetime_utc(2017, 10, 31, 22, 0), self._datetime_utc(2017, 11, 1, 1, 30)),
+            (self._datetime_utc(2017, 11, 1, 2, 0), self._datetime_utc(2017, 11, 1, 5, 0)),
+            (self._datetime_utc(2017, 11, 1, 22, 0), self._datetime_utc(2017, 11, 2, 1, 30)),
+            (self._datetime_utc(2017, 11, 2, 2, 0), self._datetime_utc(2017, 11, 2, 5, 0)),
         ]
 
         for i, shift in enumerate(schedule.detail_ids):
-            self.assertEqual(self._convert_to_user_tz(shift.date_start), expected_shifts[i][0], msg=i)
-            self.assertEqual(self._convert_to_user_tz(shift.date_end), expected_shifts[i][1], msg=i)
+            self.assertEqual(shift.date_start, fields.Datetime.to_string(expected_shifts[i][0]), msg=i)
+            self.assertEqual(shift.date_end, fields.Datetime.to_string(expected_shifts[i][1]), msg=i)

@@ -28,6 +28,7 @@ from odoo.tools import DEFAULT_SERVER_DATETIME_FORMAT as OE_DTFORMAT
 from odoo.tools import DEFAULT_SERVER_DATE_FORMAT as OE_DFORMAT
 from odoo.tools.translate import _
 from odoo.exceptions import ValidationError, UserError
+from odoo.tools.profiler import profile
 
 import logging
 _logger = logging.getLogger(__name__)
@@ -321,121 +322,132 @@ WHERE (date_start <= %s and %s <= date_end)
 
         return
 
+    def get_leaves(self):
+        self.ensure_one()
+        leave_obj = self.env['hr.holidays']
+        leaves = []
+        leave_ids = leave_obj.search([
+            ('employee_id', '=', self.employee_id.id),
+            ('date_from', '<=', self.date_end),
+            ('date_to', '>=', self.date_start),
+            ('state', 'in', ['draft', 'validate', 'validate1'])
+        ])
+
+        for lv in leave_ids:
+            leave_from = fields.Datetime.from_string(lv.date_from)
+            leave_to = fields.Datetime.from_string(lv.date_to)
+            leaves.append((leave_from, leave_to))
+        return leaves
+    
+    def adjust_for_leaves(self, time_shift_start, time_shift_end, leaves):
+        for leave_from, leave_to in leaves:
+            if leave_from <= time_shift_start and leave_to >= time_shift_end:
+                return (None, None)
+            elif leave_from > time_shift_start and leave_from <= time_shift_end:
+                if leave_to == time_shift_end:
+                    return (None, None)
+                else:
+                    time_shift_end = leave_from + timedelta(
+                        seconds=-1)
+                break
+            elif leave_to >= time_shift_start and leave_to < time_shift_end:
+                if leave_to == time_shift_end:
+                    return (None, None)
+                else:
+                    time_shift_start = leave_to + timedelta(
+                        seconds=+1)
+                break
+        
+        return (time_shift_start, time_shift_end)
+
     @api.multi
     def create_details(self):
-        leave_obj = self.env['hr.holidays']
-
         for schedule in self:
-            if schedule.template_id:
+            if not schedule.template_id:
+                continue
 
-                # Get first day of contract
-                date_contract_start = False
-                for contract in schedule.employee_id.contract_ids:
-                    d = fields.Date.from_string(contract.date_start)
-                    if not date_contract_start or d < date_contract_start:
-                        date_contract_start = d
+            # Get first day of contract
+            date_contract_start = False
+            if schedule.employee_id.contract_id:
+                date_contract_start= fields.Date.from_string(schedule.employee_id.contract_id.date_start)
 
-                leaves = []
-                leave_ids = leave_obj.search(
-                    [('employee_id', '=', schedule.employee_id.id),
-                     ('date_from', '<=',
-                      schedule.date_end), ('date_to', '>=',
-                                           schedule.date_start),
-                     ('state', 'in', ['draft', 'validate', 'validate1'])])
-                for lv in leave_ids:
-                    leave_from = fields.Datetime.from_string(lv.date_from)
-                    leave_to = fields.Datetime.from_string(lv.date_to)
-                    leaves.append((leave_from, leave_to))
+            leaves = schedule.get_leaves()
 
-                user_tz = timezone(self.env.user.tz)
+            date_start = fields.Date.from_string(schedule.date_start)
+            date_end = fields.Date.from_string(schedule.date_end)
 
-                date_start = fields.Date.from_string(schedule.date_start)
-                date_end = fields.Date.from_string(schedule.date_end)
+            date_week_start = date_start
+            date_schedule_start = date_start
+            week_number = 1
+            while date_week_start < date_end:
 
-                date_week_start = date_start
-                date_schedule_start = date_start
-                week_number = 1
-                while date_week_start < date_end:
+                # Enter the rest day(s)
+                #
+                if date_week_start == date_schedule_start:
+                    self.add_restdays(schedule, self.restday_ids1)
+                elif date_week_start == date_schedule_start + relativedelta(days=+7):
+                    self.add_restdays(schedule, self.restday_ids2)
+                elif date_week_start == date_schedule_start + relativedelta(days=+14):
+                    self.add_restdays(schedule, self.restday_ids3)
+                elif date_week_start == date_schedule_start + relativedelta(days=+21):
+                    self.add_restdays(schedule, self.restday_ids4)
+                elif date_week_start == date_schedule_start + relativedelta(days=+28):
+                    self.add_restdays(schedule, self.restday_ids5)
 
-                    # Enter the rest day(s)
+                for worktime in schedule.template_id.worktime_ids:
+
+                    if worktime.week > week_number:
+                        date_week_start = date_week_start + \
+                            relativedelta(weeks=(worktime.week - week_number))
+                        week_number = worktime.week
+
+                    if date_week_start >= date_end:
+                        break
+
+                    time_shift_start = worktime.get_date_start(
+                        date_schedule_start)
+                    time_shift_end = worktime.get_date_end(
+                        date_schedule_start)
+
+                    # Skip days before start of contract
+                    if date_contract_start and date_contract_start > time_shift_start.date():
+                        continue
+
+                    # Leave empty holes where there are leaves
                     #
-                    if date_week_start == date_schedule_start:
-                        self.add_restdays(schedule, self.restday_ids1)
-                    elif date_week_start == date_schedule_start + relativedelta(days=+7):
-                        self.add_restdays(schedule, self.restday_ids2)
-                    elif date_week_start == date_schedule_start + relativedelta(days=+14):
-                        self.add_restdays(schedule, self.restday_ids3)
-                    elif date_week_start == date_schedule_start + relativedelta(days=+21):
-                        self.add_restdays(schedule, self.restday_ids4)
-                    elif date_week_start == date_schedule_start + relativedelta(days=+28):
-                        self.add_restdays(schedule, self.restday_ids5)
+                    _skip = False
+                    time_shift_start, time_shift_end = self.adjust_for_leaves(time_shift_start, time_shift_end, leaves)
 
-                    for worktime in schedule.template_id.worktime_ids:
-                        
-                        if worktime.week > week_number:
-                            date_week_start = date_week_start + relativedelta(weeks=(worktime.week - week_number))
-                            week_number = worktime.week
-                        
-                        if date_week_start >= date_end:
+                    if time_shift_start is None:
+                        continue
+                    
+                    # Do not recreate details that have not been deleted because
+                    # they are locked.
+                    #
+                    for detail in schedule.detail_ids:
+                        if fields.Datetime.to_string(time_shift_start) >= detail.date_start and \
+                                fields.Datetime.to_string(time_shift_start) <= detail.date_end:
+                            _skip = True
                             break
 
-                        time_shift_start = worktime.get_date_start(date_schedule_start)
-                        time_shift_end = worktime.get_date_end(date_schedule_start)
-                        
-                        # Skip days before start of contract
-                        if date_contract_start and date_contract_start > time_shift_start.date():
-                            continue
+                    if not _skip:
+                        val = {
+                            'name':
+                            schedule.name,
+                            'dayofweek':
+                            worktime.dayofweek,
+                            'date_start':
+                            fields.Datetime.to_string(
+                                time_shift_start.astimezone(utc)),
+                            'date_end':
+                            fields.Datetime.to_string(
+                                time_shift_end.astimezone(utc)),
+                            'schedule_id':
+                            schedule.id,
+                        }
+                        schedule.write({'detail_ids': [(0, 0, val)]})
 
-                        # Leave empty holes where there are leaves
-                        #
-                        _skip = False
-                        for leave_from, leave_to in leaves:
-                            if leave_from <= time_shift_start and leave_to >= time_shift_end:
-                                _skip = True
-                                break
-                            elif leave_from > time_shift_start and leave_from <= time_shift_end:
-                                if leave_to == time_shift_end:
-                                    _skip = True
-                                else:
-                                    time_shift_end = leave_from + timedelta(
-                                        seconds=-1)
-                                break
-                            elif leave_to >= time_shift_start and leave_to < time_shift_end:
-                                if leave_to == time_shift_end:
-                                    _skip = True
-                                else:
-                                    time_shift_start = leave_to + timedelta(
-                                        seconds=+1)
-                                break
-
-                        # Do not recreate details that have not been deleted because
-                        # they are locked.
-                        #
-                        for detail in schedule.detail_ids:
-                            if detail.day == fields.Date.to_string(time_shift_start.date()) and              \
-                                    fields.Datetime.to_string(time_shift_start) >= detail.date_start and \
-                                    fields.Datetime.to_string(time_shift_start) <= detail.date_end:
-                                _skip = True
-                                break
-
-                        if not _skip:
-                            val = {
-                                'name':
-                                schedule.name,
-                                'dayofweek':
-                                worktime.dayofweek,
-                                'day':
-                                fields.Date.to_string(time_shift_start.date()),
-                                'date_start':
-                                fields.Datetime.to_string(time_shift_start.astimezone(utc)),
-                                'date_end':
-                                fields.Datetime.to_string(time_shift_end.astimezone(utc)),
-                                'schedule_id':
-                                schedule.id,
-                            }
-                            schedule.write({'detail_ids': [(0, 0, val)]})
-
-                    date_week_start = date_week_start + relativedelta(weeks=+1)
+                date_week_start = date_week_start + relativedelta(weeks=+1)
 
     @api.model
     def create(self, vals):
@@ -544,6 +556,14 @@ WHERE (date_start <= %s and %s <= date_end)
         return True
 
     @api.multi
+    def action_lock(self):
+        ''' Lock the schedules '''
+
+        self.write({
+            'state': 'locked'
+        })
+
+    @api.multi
     def workflow_lock(self):
         '''Lock the Schedule Record. Expects to be called by its schedule detail
         records as they are locked one by one.  When the last one has been locked
@@ -557,6 +577,14 @@ WHERE (date_start <= %s and %s <= date_end)
                 all_locked = False
 
         return all_locked
+
+    @api.multi
+    def action_unlock(self):
+        ''' Unlock the schedules '''
+
+        self.write({
+            'state': 'unlocked'
+        })
 
     @api.multi
     def workflow_unlock(self):
