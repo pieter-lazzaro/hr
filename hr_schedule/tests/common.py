@@ -41,13 +41,13 @@ class HrScheduleTestCase(common.TransactionCase):
 
         self.employee = self.env['hr.employee'].create(
             {'name': 'test employee'})
-            
+
         self.contract = self.contract_model.create({
             'name': 'test',
             'employee_id': self.employee.id,
             'wage': 0,
         })
-        
+
         self.start_of_week = self._datetime_utc(2017, 10, 30)
         self.end_of_week = self.start_of_week + \
             relativedelta(weeks=1) - relativedelta(days=1)
@@ -63,11 +63,11 @@ class HrScheduleTestCase(common.TransactionCase):
         d = self._datetime(year, month, day, hour, minute, tzinfo)
         return d.astimezone(pytz.utc)
 
-    def _convert_to_utc(self, timestamp):
+    def _set_to_utc(self, timestamp):
         return pytz.utc.localize(fields.Datetime.from_string(timestamp))
 
     def _convert_to_user_tz(self, timestamp):
-        datetime_utc = self._convert_to_utc(timestamp)
+        datetime_utc = self._set_to_utc(timestamp)
         user_tz = pytz.timezone(self.env.user.tz)
         datetime_user_tz = datetime_utc.astimezone(user_tz)
         return datetime_user_tz
