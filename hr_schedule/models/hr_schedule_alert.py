@@ -193,6 +193,7 @@ class HrScheduleAlert(models.Model):
                         })
 
     @api.model
+    @profile
     def compute_alerts(self, shifts, attendances):
         alert_rule_model = self.env['hr.schedule.alert.rule']
         rules = alert_rule_model.search([('active', '=', True)])
@@ -279,7 +280,6 @@ class HrScheduleAlert(models.Model):
         self.compute_alerts([shift], attendances)
 
     @api.model
-    @profile
     def compute_alerts_by_employee(self, employee, date_start, date_end=None):
         """ Compute alerts for employee on specified range."""
 

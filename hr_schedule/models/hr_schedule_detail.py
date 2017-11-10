@@ -185,8 +185,9 @@ WHERE (date_start <= %s and %s <= date_end)
         return res
 
     @api.multi
-    def _remove_direct_alerts(self):
-        """Remove alerts directly attached to the schedule detail
+    def remove_direct_alerts(self):
+        """
+        Remove alerts directly attached to the schedule detail
         """
         for shift in self:
             shift.alert_ids.unlink()
@@ -206,7 +207,7 @@ WHERE (date_start <= %s and %s <= date_end)
 
         # Remove alerts directly attached to the schedule details
         #
-        attendances = detail_ids._remove_direct_alerts()
+        detail_ids.remove_direct_alerts()
 
         res = super(schedule_detail, detail_ids).unlink()
 
@@ -220,24 +221,23 @@ WHERE (date_start <= %s and %s <= date_end)
 
         res = super(schedule_detail, self).write(vals)
 
-        # if 'date_start' in vals or 'date_end' in vals:
-        #     self._remove_direct_alerts()
-        #     self.compute_alerts()
-
         return res
 
+    @api.multi
     def workflow_validate(self):
-        self.state = 'validate'
+        self.write({'state': 'validate'})
+        
 
+    @api.multi
     def workflow_lock(self):
-        for detail in self:
-            detail.write({'state': 'locked'})
-            detail.schedule_id.workflow_lock()
+        self.write({'state': 'locked'})
+        self.mapped('schedule_id').notify_lock()
 
+
+    @api.multi
     def workflow_unlock(self):
-        for detail in self:
-            detail.write({'state': 'unlocked'})
-            detail.schedule_id.workflow_unlock()
+        self.write({'state': 'unlocked'})
+        self.mapped('schedule_id').notify_unlock()
 
     @api.multi
     def compute_alerts(self):

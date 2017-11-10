@@ -564,7 +564,7 @@ WHERE (date_start <= %s and %s <= date_end)
         })
 
     @api.multi
-    def workflow_lock(self):
+    def notify_lock(self):
         '''Lock the Schedule Record. Expects to be called by its schedule detail
         records as they are locked one by one.  When the last one has been locked
         the schedule will also be locked.'''
@@ -587,7 +587,7 @@ WHERE (date_start <= %s and %s <= date_end)
         })
 
     @api.multi
-    def workflow_unlock(self):
+    def notify_unlock(self):
         '''Unlock the Schedule Record. Expects to be called by its schedule detail
         records as they are unlocked one by one.  When the first one has been unlocked
         the schedule will also be unlocked.'''

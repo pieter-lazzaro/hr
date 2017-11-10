@@ -139,7 +139,6 @@ class hr_schedule_alert_rule(models.Model):
                     continue
                 
                 date_punch_out = fields.Datetime.from_string(punch.check_out)
-                print(date_scheduled, date_punch_out)
                 difference = 0
                 if date_punch_out < date_scheduled:
                     difference = (date_scheduled - date_punch_out).seconds / 60
