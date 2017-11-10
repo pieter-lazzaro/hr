@@ -50,6 +50,8 @@
                 <form string="Employee Schedule" version="7.0">
                     <header>
                         <button name="workflow_validate" type="object" states="draft" class="oe_highlight" string="Validate"/>
+                        <button name="action_lock" type="object" states="validate" class="oe_highlight" string="Lock"/>
+                        <button name="action_reset" type="object" states="validate,locked,unlocked" string="Reset"/>
                         <field name="state" widget="statusbar"/>
                     </header>
                     <sheet>

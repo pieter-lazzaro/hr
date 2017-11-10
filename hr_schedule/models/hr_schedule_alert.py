@@ -102,6 +102,12 @@ class HrScheduleAlert(models.Model):
         },
     }
 
+    def action_resolve(self):
+        self.write({'state': 'resolved'})
+    
+    def action_reset(self):
+        self.write({'state': 'unresolved'})
+
     def check_for_alerts(self):
         """Check the schedule detail and attendance records for
         yesterday against the scheduling/attendance alert rules.
@@ -193,7 +199,6 @@ class HrScheduleAlert(models.Model):
                         })
 
     @api.model
-    @profile
     def compute_alerts(self, shifts, attendances):
         alert_rule_model = self.env['hr.schedule.alert.rule']
         rules = alert_rule_model.search([('active', '=', True)])

@@ -585,6 +585,14 @@ WHERE (date_start <= %s and %s <= date_end)
         self.write({
             'state': 'unlocked'
         })
+    
+    @api.multi
+    def action_reset(self):
+        ''' Reset the schedules to draft '''
+
+        self.write({
+            'state': 'draft'
+        })
 
     @api.multi
     def notify_unlock(self):

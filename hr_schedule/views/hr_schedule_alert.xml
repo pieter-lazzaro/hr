@@ -47,6 +47,8 @@
             <field name="arch" type="xml">
                 <form string="Exception" version="7.0">
                     <header>
+                        <button name="action_resolve" type="object" states="unresolved" class="oe_highlight" string="Resolve"/>
+                        <button name="action_reset" type="object" states="resolved" string="Reset"/>
                         <field name="state" widget="statusbar"/>
                     </header>
                     <sheet>
